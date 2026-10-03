@@ -1521,6 +1521,13 @@ kbd {
   height: 100%;
 }
 
+/* 扇区之间的细缝，颜色与页面背景一致 */
+.donut-slice {
+  stroke: var(--paper);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+
 .donut-center {
   position: absolute;
   inset: 0;

@@ -13,39 +13,55 @@ export interface Slice {
 const H = 3600_000;
 const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
 
+/** 角度 a（弧度，0 在正上方，顺时针）对应的坐标 */
+const polar = (cx: number, cy: number, r: number, a: number) => [cx + r * Math.sin(a), cy - r * Math.cos(a)] as const;
+
+/** 扇环路径：用填充的几何形状而不是描边虚线，在所有浏览器里形状都稳定 */
+function ringSector(cx: number, cy: number, r0: number, r1: number, a0: number, a1: number): string {
+  const large = a1 - a0 > Math.PI ? 1 : 0;
+  const [x0, y0] = polar(cx, cy, r1, a0);
+  const [x1, y1] = polar(cx, cy, r1, a1);
+  const [x2, y2] = polar(cx, cy, r0, a1);
+  const [x3, y3] = polar(cx, cy, r0, a0);
+  return `M${x0} ${y0}A${r1} ${r1} 0 ${large} 1 ${x1} ${y1}L${x2} ${y2}A${r0} ${r0} 0 ${large} 0 ${x3} ${y3}Z`;
+}
+
+/** 完整圆环（只有一个扇区时） */
+function fullRing(cx: number, cy: number, r0: number, r1: number): string {
+  return `M${cx} ${cy - r1}A${r1} ${r1} 0 1 1 ${cx} ${cy + r1}A${r1} ${r1} 0 1 1 ${cx} ${cy - r1}Z` +
+    `M${cx} ${cy - r0}A${r0} ${r0} 0 1 0 ${cx} ${cy + r0}A${r0} ${r0} 0 1 0 ${cx} ${cy - r0}Z`;
+}
+
+const MIN_ANGLE = 0.004; // 约 0.23°，更小的扇区画不出来，只在图例里列出
+
 export function Donut({ slices, center, label }: { slices: Slice[]; center: ReactNode; label: string }) {
-  const r = 80;
-  const c = 2 * Math.PI * r;
+  const cx = 110;
+  const cy = 110;
+  const r0 = 63;
+  const r1 = 97;
   const total = slices.reduce((a, s) => a + s.ms, 0);
-  let offset = 0;
+  const visible = slices.filter((s) => total > 0 && (s.ms / total) * 2 * Math.PI >= MIN_ANGLE);
+  let a = 0;
   return (
     <div className="donut">
       <svg viewBox="0 0 220 220" role="img" aria-label={label}>
-        <circle cx="110" cy="110" r={r} fill="none" stroke="var(--line)" strokeWidth="34" />
-        {total > 0 &&
-          slices.map((s) => {
-            const len = (s.ms / total) * c;
-            const el = (
-              <circle
-                key={s.key}
-                cx="110"
-                cy="110"
-                r={r}
-                fill="none"
-                stroke={s.color}
-                strokeWidth="34"
-                strokeDasharray={`${len} ${c - len}`}
-                strokeDashoffset={-offset}
-                transform="rotate(-90 110 110)"
-              >
-                <title>
-                  {s.label} {formatHm(s.ms)}
-                </title>
-              </circle>
+        <path d={fullRing(cx, cy, r0, r1)} fill="var(--line)" fillRule="evenodd" />
+        {visible.length === 1 ? (
+          <path d={fullRing(cx, cy, r0, r1)} fill={visible[0].color} fillRule="evenodd">
+            <title>{`${visible[0].label} ${formatHm(visible[0].ms)}`}</title>
+          </path>
+        ) : (
+          visible.map((s) => {
+            const a0 = a;
+            const a1 = a + (s.ms / total) * 2 * Math.PI;
+            a = a1;
+            return (
+              <path key={s.key} d={ringSector(cx, cy, r0, r1, a0, a1)} fill={s.color} className="donut-slice">
+                <title>{`${s.label} ${formatHm(s.ms)}`}</title>
+              </path>
             );
-            offset += len;
-            return el;
-          })}
+          })
+        )}
       </svg>
       <div className="donut-center">{center}</div>
     </div>
