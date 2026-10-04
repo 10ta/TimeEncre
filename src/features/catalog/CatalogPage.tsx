@@ -51,11 +51,8 @@ function CatalogList({ kind }: { kind: CatalogKind }) {
         <p className="hint">
           {kind === 'types' ? '计时页按这里的顺序排列。归档后不再出现在计时页，历史记录不受影响。' : '标签平级，可以给任何记录打多个。'}
         </p>
-        <button type="button" className="btn is-primary" onClick={() => setEditing('new')}>
-          新建{LABEL[kind]}
-        </button>
       </div>
-      {live.length === 0 && <p className="empty">还没有{LABEL[kind]}，点“新建{LABEL[kind]}”添加。</p>}
+
       <ul className="cat-list">
         {live.map((x) => (
           <li key={x.id} style={{ '--c': x.color } as CSSProperties}>
@@ -70,6 +67,11 @@ function CatalogList({ kind }: { kind: CatalogKind }) {
             </span>
           </li>
         ))}
+        <li className="cat-add">
+          <button type="button" className="cat-name" onClick={() => setEditing('new')}>
+            ＋ 新建{LABEL[kind]}
+          </button>
+        </li>
       </ul>
       {archived.length > 0 && (
         <section className="archived">

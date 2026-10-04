@@ -23,6 +23,12 @@ export function TypeGrid({
       {types.map((t) => (
         <Tile key={t.id} type={t} active={latestByType.get(t.id)} now={now} onOptions={() => onOptions(t.id)} />
       ))}
+      <li>
+        <a className="tile is-manage" href="#/catalog" title="增删、排序、归档类型和标签">
+          <span className="tile-emoji" aria-hidden="true">⚙️</span>
+          <span className="tile-name">管理</span>
+        </a>
+      </li>
     </ul>
   );
 }

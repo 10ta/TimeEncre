@@ -31,7 +31,6 @@ export function GoalsPage() {
     <div className="page goals">
       <header className="page-head">
         <h1>目标</h1>
-        <button type="button" className="btn is-primary" onClick={() => setEditing('new')}>新建目标</button>
       </header>
 
       {goals.length === 0 && (
@@ -86,6 +85,11 @@ export function GoalsPage() {
             </li>
           );
         })}
+        <li>
+          <button type="button" className="add-card" onClick={() => setEditing('new')}>
+            ＋ 新建目标
+          </button>
+        </li>
       </ul>
       {goals.length > 0 && <p className="hint">右侧小方块是最近几个周期的达成情况，最右边是当前周期；鼠标悬停可看具体时长。“至少”型目标的竖线表示按时间进度此刻应到达的位置。</p>}
 

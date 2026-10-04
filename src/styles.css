@@ -19,7 +19,6 @@
   --r-sm: 6px;
   --r-md: 12px;
   --nav-w: 208px;
-  --side-w: 340px;
 
   color-scheme: light dark;
   font-family: var(--sans);
@@ -109,7 +108,7 @@ textarea {
 
 .app {
   display: grid;
-  grid-template-columns: var(--nav-w) minmax(0, 1fr) var(--side-w);
+  grid-template-columns: var(--nav-w) minmax(0, 1fr);
   min-height: 100dvh;
 }
 
@@ -172,30 +171,6 @@ textarea {
   padding: 2rem clamp(1rem, 3vw, 2.5rem) 4rem;
 }
 
-.side {
-  position: sticky;
-  top: 0;
-  height: 100dvh;
-  overflow-y: auto;
-  border-left: 1px solid var(--line);
-  background: var(--surface);
-}
-
-.running-strip {
-  display: none;
-}
-
-@media (max-width: 1179px) {
-  .app {
-    grid-template-columns: var(--nav-w) minmax(0, 1fr);
-  }
-  .side {
-    display: none;
-  }
-  .running-strip {
-    display: block;
-  }
-}
 
 @media (max-width: 759px) {
   .app {
@@ -236,16 +211,31 @@ textarea {
   }
 }
 
+/* 内容列居中，宽屏上不再把按钮甩到很远的右边 */
 .page {
-  max-width: 980px;
+  max-width: 1240px;
+  margin: 0 auto;
 }
 
 .page-head {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.running-strip {
+  max-width: 1240px;
+  margin: -0.25rem auto 1.25rem;
+}
+
+.section-link {
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.section-link:hover {
+  text-decoration: underline;
 }
 
 /* ---------- 按钮 ---------- */
@@ -430,29 +420,16 @@ textarea {
   border-color: var(--c);
 }
 
-/* ---------- 进行中面板 ---------- */
+/* ---------- 进行中 ---------- */
 
-.running-side {
-  padding: 2rem 1.25rem;
+.running-section {
+  margin-bottom: 1.5rem;
 }
 
-.running-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.count {
-  font-family: var(--sans);
-  font-size: 0.8rem;
-  font-weight: 600;
-  min-width: 1.5rem;
-  padding: 0 0.4rem;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--surface);
-  text-align: center;
+.running-section .run-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 0.75rem;
 }
 
 .run-list {
@@ -462,15 +439,23 @@ textarea {
 }
 
 .run {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     'main main'
     'clock actions';
-  gap: 0.35rem 0.75rem;
-  padding: 0.9rem 0 0.9rem 0.85rem;
-  border-left: 3px solid var(--c);
-  border-bottom: 1px solid var(--line);
+  gap: 0.5rem 0.75rem;
+  padding: 0.9rem 0.9rem 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--c);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: color-mix(in srgb, var(--c) 8%, var(--surface));
+}
+
+.run:hover {
+  border-color: color-mix(in srgb, var(--c) 55%, var(--line));
+  border-left-color: var(--c);
 }
 
 .run-main {
@@ -483,15 +468,34 @@ textarea {
   background: none;
   text-align: left;
   cursor: pointer;
+  min-width: 0;
+}
+
+/* 铺满整张卡片的点击区域；暂停 / 停止按钮浮在它上面 */
+.run-main::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.run-main:focus-visible {
+  outline: none;
+}
+
+.run-main:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0 var(--r-md) var(--r-md) 0;
 }
 
 .run-emoji {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   line-height: 1.2;
 }
 
 .run-text {
   display: grid;
+  gap: 0.1rem;
   min-width: 0;
 }
 
@@ -502,20 +506,20 @@ textarea {
   gap: 0.4rem;
 }
 
-.run-meta {
-  font-size: 0.85rem;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .run-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 0.15rem 0.6rem;
   font-size: 0.82rem;
   color: var(--ink-2);
+}
+
+.run-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .run-clock {
@@ -536,6 +540,8 @@ textarea {
 
 .run-actions {
   grid-area: actions;
+  position: relative;
+  z-index: 1;
   display: flex;
   gap: 0.4rem;
   align-items: center;
@@ -550,11 +556,7 @@ textarea {
   color: var(--ink-2);
 }
 
-/* 窄屏顶部横条 */
-.running-strip {
-  margin: -0.25rem 0 1.25rem;
-}
-
+/* 其他页面顶部的紧凑横条 */
 .running-strip .run-list {
   display: flex;
   gap: 0.6rem;
@@ -570,15 +572,16 @@ textarea {
   grid-template-areas: 'main clock actions';
   align-items: center;
   padding: 0.5rem 0.6rem;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--c);
-  border-radius: var(--r-sm);
-  background: var(--surface);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
 }
 
 .running-strip .run-meta,
 .running-strip .run-tags {
   display: none;
+}
+
+.running-strip .run-emoji {
+  font-size: 1.3rem;
 }
 
 .running-strip .run-clock {
@@ -2005,7 +2008,7 @@ kbd {
 }
 
 .today-goals .today-head {
-  justify-content: space-between;
+  align-items: baseline;
 }
 
 .today-goals ul {
@@ -2081,4 +2084,75 @@ kbd {
   .tg-bar { grid-area: bar; }
   .tg-num { grid-area: num; text-align: left; }
   .tg .goal-status { grid-area: status; }
+}
+
+/* ---------- 管理格子 / 新建卡片 ---------- */
+
+.tile.is-manage {
+  border-style: dashed;
+  background: transparent;
+  text-decoration: none;
+  color: var(--muted);
+}
+
+.tile.is-manage::after {
+  display: none;
+}
+
+.tile.is-manage .tile-emoji {
+  font-size: 1.6rem;
+  opacity: 0.7;
+}
+
+.add-card {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.add-card:hover,
+.tile.is-manage:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cat-list li.cat-add {
+  border-left: 3px dashed var(--line);
+}
+
+.cat-add .cat-name {
+  color: var(--muted);
+}
+
+/* 整行可点：名称按钮的点击区域铺满整行，操作按钮浮在上面 */
+.cat-list li,
+.goal {
+  position: relative;
+}
+
+.cat-name::after,
+.goal-main::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.cat-list li:hover {
+  background: var(--surface);
+}
+
+.cat-actions,
+.goal-history {
+  position: relative;
+  z-index: 1;
+}
+
+.goal:hover {
+  border-color: color-mix(in srgb, var(--c) 55%, var(--line));
+  border-left-color: var(--c);
 }

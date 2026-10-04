@@ -77,9 +77,6 @@ export function HistoryPage() {
     <div className="page history">
       <header className="page-head">
         <h1>历史</h1>
-        <button type="button" className="btn is-primary" onClick={() => setAdding('blank')}>
-          补录
-        </button>
       </header>
 
       <RangeNav
@@ -106,6 +103,9 @@ export function HistoryPage() {
           <input type="checkbox" checked={showGaps} onChange={(e) => setShowGaps(e.target.checked)} />
           <span>显示未记录的空白</span>
         </label>
+        <button type="button" className="btn" onClick={() => setAdding('blank')}>
+          ＋ 补录
+        </button>
       </div>
 
       {allDays.length === 0 && <p className="empty">{q ? `这段时间没有匹配“${query.trim()}”的记录。` : '这段时间没有记录。'}</p>}

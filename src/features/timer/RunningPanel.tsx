@@ -6,38 +6,34 @@ import { IconButton } from '../../ui/Icon';
 import { formatClock, recordSpans, totalMs } from '../../lib/time';
 import { RecordDialog } from './RecordDialog';
 
-/** side：大屏右侧常驻面板；strip：窄屏顶部横条（没有进行中的计时就不显示） */
-export function RunningPanel({ variant }: { variant: 'side' | 'strip' }) {
+/**
+ * 进行中的记录。section：计时页上的一组卡片；strip：其他页面顶部的紧凑横条。
+ * 没有进行中的记录时整块不显示。点卡片任意位置编辑，暂停/停止按钮除外。
+ */
+export function RunningPanel({ variant }: { variant: 'section' | 'strip' }) {
   const actives = useActiveRecords();
   const typeMap = useTypeMap();
   const tagMap = useTagMap();
   const now = useNow(1000, !!actives?.length);
   const [editing, setEditing] = useState<string | null>(null);
 
-  if (!actives || !typeMap || !tagMap) return null;
-  if (variant === 'strip' && actives.length === 0) return null;
+  if (!actives || !typeMap || !tagMap || actives.length === 0) return null;
 
   return (
     <section className={`running running-${variant}`} aria-label="进行中">
-      {variant === 'side' && (
-        <h2 className="running-title">
-          进行中{actives.length > 0 && <span className="count">{actives.length}</span>}
-        </h2>
-      )}
-      {variant === 'side' && actives.length === 0 && (
-        <p className="empty">点任意一个类型开始计时。长按或右键可以先填备注和标签。</p>
-      )}
       <ul className="run-list">
         {actives.map((r) => {
           const type = typeMap.get(r.typeId);
           const tags = r.tagIds.map((id) => tagMap.get(id)).filter((t) => t && !t.deleted);
+          const name = type?.name ?? '未知类型';
           return (
             <li key={r.id} className={`run is-${r.state}`} style={{ '--c': type?.color ?? '#888' } as CSSProperties}>
-              <button type="button" className="run-main" onClick={() => setEditing(r.id)} title="编辑备注、标签、开始时间">
+              {/* 这个按钮通过 ::after 铺满整张卡片，所以点卡片任何位置都会打开编辑 */}
+              <button type="button" className="run-main" onClick={() => setEditing(r.id)} aria-label={`编辑 ${name}`}>
                 <span className="run-emoji" aria-hidden="true">{type?.emoji ?? '❔'}</span>
                 <span className="run-text">
                   <span className="run-name">
-                    {type?.name ?? '未知类型'}
+                    {name}
                     {r.state === 'paused' && <span className="badge">已暂停</span>}
                   </span>
                   {tags.length > 0 && (

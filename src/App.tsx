@@ -95,18 +95,15 @@ export function App() {
         <UpdatePrompt />
       </ErrorBoundary>
       <main className="main">
-        <ErrorBoundary area="进行中面板">
-          <RunningPanel variant="strip" />
-        </ErrorBoundary>
+        {route !== 'timer' && (
+          <ErrorBoundary area="进行中">
+            <RunningPanel variant="strip" />
+          </ErrorBoundary>
+        )}
         <ErrorBoundary key={route} area="页面">
           <Page route={route} />
         </ErrorBoundary>
       </main>
-      <aside className="side">
-        <ErrorBoundary area="进行中面板">
-          <RunningPanel variant="side" />
-        </ErrorBoundary>
-      </aside>
     </div>
   );
 }

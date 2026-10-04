@@ -28,7 +28,7 @@ export function TodayGoals() {
     <section className="today-goals" aria-labelledby="today-goals-title">
       <header className="today-head">
         <h2 id="today-goals-title">目标</h2>
-        <a className="btn is-quiet is-small" href="#/goals">全部目标</a>
+        <a className="section-link" href="#/goals">查看全部 ›</a>
       </header>
       <ul>
         {views.map((v) => (

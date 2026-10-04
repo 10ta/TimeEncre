@@ -7,6 +7,7 @@ import { TypeGrid } from './TypeGrid';
 import { TodayStrip } from './TodayStrip';
 import { RecordDialog } from './RecordDialog';
 import { TodayGoals } from '../goals/TodayGoals';
+import { RunningPanel } from './RunningPanel';
 
 export function TimerPage() {
   const types = useTypes();
@@ -20,8 +21,8 @@ export function TimerPage() {
     <div className="page">
       <header className="page-head">
         <h1>计时</h1>
-        <a className="btn is-quiet" href="#/catalog">管理类型与标签</a>
       </header>
+      <RunningPanel variant="section" />
       <TypeGrid types={types} actives={actives} onOptions={setOptionsFor} />
       <TodayGoals />
       <TodayStrip />
