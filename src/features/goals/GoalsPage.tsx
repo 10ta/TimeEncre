@@ -1,11 +1,11 @@
 import { useState, type CSSProperties } from 'react';
 import { useFirstRecordMs, useGoals, useRecordsInRange, useSettings, useTagMap, useTypeMap } from '../../db/hooks';
-import type { Goal } from '../../schema';
 import { useNow } from '../../ui/hooks';
 import { formatHm } from '../../lib/time';
 import { rangeLabel } from '../../lib/range';
 import { HISTORY_PERIODS, goalProgressMs, goalStatus, recentPeriods } from '../../lib/stats';
-import { GoalDialog } from './GoalDialog';
+import { CreateGoalForm, LiveGoalForm } from './GoalForms';
+import { Drawer } from '../../ui/Drawer';
 import { CURRENT_WORD, DIRECTION_LABEL, PERIOD_LABEL, STATUS_TEXT, viewGoal } from './goalView';
 
 export function GoalsPage() {
@@ -15,7 +15,8 @@ export function GoalsPage() {
   const tagMap = useTagMap();
   useNow(60_000);
   const now = Date.now();
-  const [editing, setEditing] = useState<Goal | 'new' | null>(null);
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const toggle = (k: string) => setOpenKey((cur) => (cur === k ? null : k));
 
   // 一次取出所有目标历史需要的最早时间之后的记录
   const ws = settings?.weekStart ?? 1;
@@ -46,8 +47,9 @@ export function GoalsPage() {
           const { ms, target, status, pct, elapsed, items, color, title } = v;
 
           return (
-            <li key={g.id} className={`goal is-${status} is-${g.direction}`} style={{ '--c': color } as CSSProperties}>
-              <button type="button" className="goal-main" onClick={() => setEditing(g)}>
+            <li key={g.id} className={`goal-item${openKey === g.id ? ' is-open' : ''}`}>
+              <div className={`goal is-${status} is-${g.direction}`} style={{ '--c': color } as CSSProperties}>
+              <button type="button" className="goal-main" aria-expanded={openKey === g.id} onClick={() => toggle(g.id)}>
                 <span className="goal-head">
                   <span className="goal-title">{title}</span>
                   <span className={`goal-status is-${status}`}>{STATUS_TEXT[status]}</span>
@@ -82,18 +84,28 @@ export function GoalsPage() {
                   );
                 })}
               </ol>
+              </div>
+              <Drawer open={openKey === g.id} onClose={() => setOpenKey(null)}>
+                <div className="drawer-edge" style={{ '--c': color } as CSSProperties}>
+                  <LiveGoalForm goal={g} onClose={() => setOpenKey(null)} />
+                </div>
+              </Drawer>
             </li>
           );
         })}
         <li>
-          <button type="button" className="add-card" onClick={() => setEditing('new')}>
+          <button type="button" className={`add-card${openKey === 'new' ? ' is-active' : ''}`} aria-expanded={openKey === 'new'} onClick={() => toggle('new')}>
             ＋ 新建目标
           </button>
+          <Drawer open={openKey === 'new'} onClose={() => setOpenKey(null)}>
+            <div className="drawer-card">
+              <CreateGoalForm onDone={() => setOpenKey(null)} />
+            </div>
+          </Drawer>
         </li>
       </ul>
       {goals.length > 0 && <p className="hint">右侧小方块是最近几个周期的达成情况，最右边是当前周期；鼠标悬停可看具体时长。“至少”型目标的竖线表示按时间进度此刻应到达的位置。</p>}
 
-      {editing && <GoalDialog goal={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

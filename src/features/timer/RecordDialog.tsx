@@ -1,22 +1,13 @@
 import { useState } from 'react';
 import { Modal } from '../../ui/Modal';
 import { TagPicker } from '../../ui/fields';
-import { useRecord, useTypeMap } from '../../db/hooks';
+import { useTypeMap } from '../../db/hooks';
 import { startRecord } from '../../db/actions';
-import { fromDb } from '../../db/db';
 import { fromLocalInput, toLocalInput } from '../../lib/time';
-import { RecordEditor } from '../records/RecordEditor';
 
-type Props =
-  | { mode: 'start'; typeId: string; onClose: () => void }
-  | { mode: 'edit'; recordId: string; onClose: () => void };
-
-export function RecordDialog(props: Props) {
-  return props.mode === 'start' ? (
-    <StartDialog typeId={props.typeId} onClose={props.onClose} />
-  ) : (
-    <EditDialog recordId={props.recordId} onClose={props.onClose} />
-  );
+/** 长按 / 右键类型格子：带备注、标签或补记开始时间地开始计时 */
+export function RecordDialog(props: { mode: 'start'; typeId: string; onClose: () => void }) {
+  return <StartDialog typeId={props.typeId} onClose={props.onClose} />;
 }
 
 const QUICK_OFFSETS = [5, 15, 30];
@@ -73,10 +64,4 @@ function StartDialog({ typeId, onClose }: { typeId: string; onClose: () => void 
       {error && <p className="form-error" role="alert">{error}</p>}
     </Modal>
   );
-}
-
-function EditDialog({ recordId, onClose }: { recordId: string; onClose: () => void }) {
-  const row = useRecord(recordId);
-  if (!row || row.deleted) return null;
-  return <RecordEditor key={row.id} mode="edit" rec={fromDb(row)} onClose={onClose} />;
 }

@@ -8,7 +8,8 @@ import { addDays, formatClock, formatHm } from '../../lib/time';
 import { dayLabel, rangeOf, shiftAnchor, type RangeMode } from '../../lib/range';
 import { gaps, splitByDay, type DaySeg } from '../../lib/segments';
 import { RangeNav } from '../shared/RangeNav';
-import { RecordEditor } from '../records/RecordEditor';
+import { CreateRecordForm, LiveRecordForm } from '../records/RecordForms';
+import { Drawer } from '../../ui/Drawer';
 
 const GAP_MIN_MS = 5 * 60_000;
 
@@ -30,8 +31,9 @@ export function HistoryPage() {
   const [anchor, setAnchor] = useState(now);
   const [query, setQuery] = useState('');
   const [showGaps, setShowGaps] = useState(false);
-  const [editing, setEditing] = useState<DbRecord | null>(null);
-  const [adding, setAdding] = useState<{ start: number; end: number } | 'blank' | null>(null);
+  // 同一时间只展开一个：'new' = 顶部补录；'gap:<开始时间>' = 某个空白下的补录；'<日>:<记录id>' = 编辑某条
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const toggle = (k: string) => setOpenKey((cur) => (cur === k ? null : k));
 
   const range = rangeOf(mode, anchor, settings?.weekStart ?? 1);
   const records = useRecordsInRange(range.from, range.to);
@@ -103,10 +105,16 @@ export function HistoryPage() {
           <input type="checkbox" checked={showGaps} onChange={(e) => setShowGaps(e.target.checked)} />
           <span>显示未记录的空白</span>
         </label>
-        <button type="button" className="btn" onClick={() => setAdding('blank')}>
+        <button type="button" className={`btn${openKey === 'new' ? ' is-active' : ''}`} aria-expanded={openKey === 'new'} onClick={() => toggle('new')}>
           ＋ 补录
         </button>
       </div>
+
+      <Drawer open={openKey === 'new'} onClose={() => setOpenKey(null)}>
+        <div className="drawer-card">
+          <CreateRecordForm onDone={() => setOpenKey(null)} />
+        </div>
+      </Drawer>
 
       {allDays.length === 0 && <p className="empty">{q ? `这段时间没有匹配“${query.trim()}”的记录。` : '这段时间没有记录。'}</p>}
 
@@ -127,17 +135,28 @@ export function HistoryPage() {
                     seg={it.seg}
                     type={typeMap.get(it.seg.rec.typeId)}
                     tags={it.seg.rec.tagIds.map((id) => tagMap.get(id)).filter((t): t is CatalogItem => !!t && !t.deleted)}
-                    onOpen={() => setEditing(it.seg.rec)}
+                    open={openKey === `${day}:${it.seg.rec.id}`}
+                    onToggle={() => toggle(`${day}:${it.seg.rec.id}`)}
+                    onClose={() => setOpenKey(null)}
                   />
                 ) : (
                   <li key={`gap-${it.start}`}>
-                    <button type="button" className="gap" onClick={() => setAdding({ start: it.start, end: it.end })} title="点击补录这段时间">
+                    <button
+                      type="button"
+                      className={`gap${openKey === `gap:${it.start}` ? ' is-open' : ''}`}
+                      aria-expanded={openKey === `gap:${it.start}`}
+                      onClick={() => toggle(`gap:${it.start}`)}
+                      title="点击补录这段时间"
+                    >
                       <span className="gap-time">
                         {hm(it.start)} – {hm(it.end)}
                       </span>
                       <span className="gap-label">未记录</span>
                       <span className="gap-ms">{formatHm(it.end - it.start)}</span>
                     </button>
+                    <Drawer open={openKey === `gap:${it.start}`} onClose={() => setOpenKey(null)}>
+                      <CreateRecordForm initial={{ start: it.start, end: it.end }} onDone={() => setOpenKey(null)} />
+                    </Drawer>
                   </li>
                 ),
               )}
@@ -146,14 +165,6 @@ export function HistoryPage() {
         );
       })}
 
-      {editing && <RecordEditor key={editing.id} mode="edit" rec={fromDb(editing)} onClose={() => setEditing(null)} />}
-      {adding && (
-        <RecordEditor
-          mode="add"
-          initial={adding === 'blank' ? undefined : adding}
-          onClose={() => setAdding(null)}
-        />
-      )}
     </div>
   );
 }
@@ -168,18 +179,28 @@ function Entry({
   seg,
   type,
   tags,
-  onOpen,
+  open,
+  onToggle,
+  onClose,
 }: {
   seg: DaySeg<DbRecord>;
   type?: CatalogItem;
   tags: CatalogItem[];
-  onOpen: () => void;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
 }) {
   const r = seg.rec;
   const live = r.state === 'running' && seg.toNextDay === false;
   return (
     <li>
-      <button type="button" className="entry" style={{ '--c': type?.color ?? '#888' } as CSSProperties} onClick={onOpen}>
+      <button
+        type="button"
+        className={`entry${open ? ' is-open' : ''}`}
+        style={{ '--c': type?.color ?? '#888' } as CSSProperties}
+        aria-expanded={open}
+        onClick={onToggle}
+      >
         <span className="entry-emoji" aria-hidden="true">{type?.emoji ?? '❔'}</span>
         <span className="entry-body">
           <span className="entry-title">
@@ -208,6 +229,11 @@ function Entry({
         </span>
         <span className="entry-ms">{live ? formatClock(seg.ms) : formatHm(seg.ms)}</span>
       </button>
+      <Drawer open={open} onClose={onClose}>
+        <div className="drawer-edge" style={{ '--c': type?.color ?? '#888' } as CSSProperties}>
+          <LiveRecordForm rec={fromDb(r)} onClose={onClose} />
+        </div>
+      </Drawer>
     </li>
   );
 }

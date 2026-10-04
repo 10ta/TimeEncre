@@ -352,3 +352,58 @@ export async function saveGoal(d: GoalDraft): Promise<string> {
 export async function deleteGoal(id: string) {
   await db.goals.update(id, { deleted: true, updatedAt: stamp() });
 }
+
+// ---------- 即时保存（原地编辑）用的局部更新与撤销 ----------
+
+export interface RecordPatchLive {
+  typeId?: string;
+  comment?: string;
+  tagIds?: string[];
+  intervals?: IntervalMs[];
+}
+
+export async function patchRecord(id: string, patch: RecordPatchLive) {
+  if (patch.intervals) {
+    const err = validateIntervals(patch.intervals);
+    if (err) throw new Error(err);
+  }
+  await mutateRecord(id, (r) => {
+    const next: TimeRecord = { ...r };
+    if (patch.typeId !== undefined) next.typeId = patch.typeId;
+    if (patch.comment !== undefined) next.comment = patch.comment;
+    if (patch.tagIds !== undefined) next.tagIds = patch.tagIds;
+    if (patch.intervals) {
+      next.intervals = toIntervals(patch.intervals);
+      const open = patch.intervals[patch.intervals.length - 1].end === null;
+      next.state = open ? 'running' : r.state === 'running' ? 'stopped' : r.state;
+    }
+    return next;
+  });
+}
+
+/** 撤销：把记录恢复成展开编辑前的快照（作为一次新的修改，便于同步） */
+export async function restoreRecord(snapshot: TimeRecord) {
+  await db.records.put(toDb({ ...snapshot, updatedAt: stamp() }));
+}
+
+export async function patchGoal(id: string, patch: Partial<Omit<GoalDraft, 'id'>>) {
+  const cur = await db.goals.get(id);
+  if (!cur) return;
+  const next = { ...cur, ...patch };
+  if (next.typeIds.length === 0 && next.tagIds.length === 0) throw new Error('至少选择一个类型或标签');
+  if (!(next.targetMinutes > 0)) throw new Error('目标时长必须大于 0');
+  await db.goals.put({ ...next, updatedAt: stamp() });
+}
+
+export async function restoreGoal(snapshot: import('../schema').Goal) {
+  await db.goals.put({ ...snapshot, updatedAt: stamp() });
+}
+
+export async function patchCatalogItem(kind: CatalogKind, id: string, patch: Partial<Pick<CatalogItem, 'name' | 'emoji' | 'color'>>) {
+  if (patch.name !== undefined && !patch.name.trim()) throw new Error('名称不能为空');
+  await table(kind).update(id, { ...patch, updatedAt: stamp() });
+}
+
+export async function restoreCatalogItem(kind: CatalogKind, snapshot: CatalogItem) {
+  await table(kind).put({ ...snapshot, updatedAt: stamp() });
+}

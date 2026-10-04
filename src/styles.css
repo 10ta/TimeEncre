@@ -753,12 +753,19 @@ textarea {
 }
 
 .cat-list li {
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid var(--c);
+}
+
+.cat-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.55rem 0.25rem 0.55rem 0.75rem;
-  border-bottom: 1px solid var(--line);
-  border-left: 3px solid var(--c);
+}
+
+.cat-list li.is-open > .cat-row {
+  background: var(--surface);
 }
 
 .cat-list.is-archived li {
@@ -2130,7 +2137,7 @@ kbd {
 }
 
 /* 整行可点：名称按钮的点击区域铺满整行，操作按钮浮在上面 */
-.cat-list li,
+.cat-row,
 .goal {
   position: relative;
 }
@@ -2142,7 +2149,7 @@ kbd {
   inset: 0;
 }
 
-.cat-list li:hover {
+.cat-row:hover {
   background: var(--surface);
 }
 
@@ -2155,4 +2162,131 @@ kbd {
 .goal:hover {
   border-color: color-mix(in srgb, var(--c) 55%, var(--line));
   border-left-color: var(--c);
+}
+
+/* ---------- 原地展开的编辑区 ---------- */
+
+.drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+}
+
+.drawer.is-open {
+  grid-template-rows: 1fr;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .drawer {
+    transition: grid-template-rows 0.2s ease;
+  }
+}
+
+.drawer-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.drawer-body {
+  padding: 1rem 1rem 0.85rem;
+  border-top: 1px dashed var(--line);
+  background: var(--surface);
+}
+
+/* 抽屉左侧延续条目的颜色线 */
+.drawer-edge {
+  margin: -1rem -1rem -0.85rem;
+  padding: 1rem 1rem 0.85rem 1rem;
+  border-left: 3px solid var(--c);
+}
+
+.drawer-card {
+  margin: -1rem -1rem -0.85rem;
+  padding: 1rem 1rem 0.85rem;
+}
+
+.inline-form .field:last-of-type {
+  margin-bottom: 0.75rem;
+}
+
+.inline-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.save-state {
+  font-size: 0.8rem;
+  color: var(--ok);
+}
+
+.entry.is-open,
+.gap.is-open {
+  background: var(--surface);
+}
+
+.btn.is-active,
+.add-card.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 历史：补录抽屉在列表上方 */
+.history > .drawer.is-open {
+  margin-bottom: 1.5rem;
+}
+
+.history > .drawer .drawer-body {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+/* 目标卡片展开 */
+.goal-item.is-open .goal {
+  border-radius: 0 var(--r-md) 0 0;
+}
+
+.goal-item .drawer-body {
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 var(--r-md) 0;
+}
+
+.goal-item .drawer-edge {
+  border-left-width: 4px;
+}
+
+.goal-list > li:last-child .drawer-body {
+  border: 1px dashed var(--line);
+  border-top: 0;
+  border-radius: 0 0 var(--r-md) var(--r-md);
+}
+
+/* 进行中卡片在卡片内展开，并占满整行 */
+.running-section .run.is-open {
+  grid-column: 1 / -1;
+}
+
+.run > .drawer {
+  grid-column: 1 / -1;
+}
+
+.run.is-open .run-main::after {
+  display: none;
+}
+
+.run.is-open {
+  padding-bottom: 0;
+}
+
+.run .drawer-body {
+  margin: 0.5rem -0.9rem 0 -1rem;
+  border-radius: 0 0 var(--r-md) 0;
+}
+
+/* 类型与标签抽屉 */
+.cat-list .drawer-body {
+  border-top: 1px dashed var(--line);
 }
