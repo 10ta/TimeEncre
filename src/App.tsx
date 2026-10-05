@@ -9,6 +9,7 @@ import { GoalsPage } from './features/goals/GoalsPage';
 import { PomodoroPage } from './features/pomodoro/PomodoroPage';
 import { PomodoroRunner } from './pomodoro/PomodoroRunner';
 import { UpdatePrompt } from './ui/UpdatePrompt';
+import { DiscardToast } from './ui/DiscardToast';
 import { AutoSync, SyncBadge } from './sync/SyncBadge';
 import { ErrorBoundary } from './ui/ErrorBoundary';
 
@@ -91,9 +92,15 @@ export function App() {
       <ErrorBoundary area="番茄钟">
         <PomodoroRunner baseTitle={baseTitle} />
       </ErrorBoundary>
-      <ErrorBoundary area="更新提示">
-        <UpdatePrompt />
-      </ErrorBoundary>
+      {/* 所有提示放在同一个容器里依次排列，互不遮挡 */}
+      <div className="toasts">
+        <ErrorBoundary area="更新提示">
+          <UpdatePrompt />
+        </ErrorBoundary>
+        <ErrorBoundary area="提示">
+          <DiscardToast />
+        </ErrorBoundary>
+      </div>
       <main className="main">
         {route !== 'timer' && (
           <ErrorBoundary area="进行中">

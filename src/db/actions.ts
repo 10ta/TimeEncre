@@ -26,6 +26,35 @@ export async function putSettingsRaw(s: Settings) {
 
 // ---------- 计时 ----------
 
+export const discardEnabled = (s: Settings) => s.discardShort ?? true;
+export const discardSeconds = (s: Settings) => s.discardShortSec ?? 30;
+
+/** 过短计时被作废时通知界面（提示 + 恢复） */
+type DiscardListener = (info: { snapshot: TimeRecord; seconds: number }) => void;
+const discardListeners = new Set<DiscardListener>();
+export function onRecordDiscarded(l: DiscardListener) {
+  discardListeners.add(l);
+  return () => void discardListeners.delete(l);
+}
+
+/**
+ * 停止一条记录；总时长不足设定秒数时直接作废（标记删除）。所有“停止”都走这里。
+ * 返回写入的记录；作废时同时返回停止后的快照，供“恢复”使用。
+ */
+async function finishRecord(rec: TimeRecord, at: number): Promise<{ next: TimeRecord; discarded: TimeRecord | null }> {
+  const stopped: TimeRecord = { ...rec, intervals: closeOpenInterval(rec, at), state: 'stopped', updatedAt: stamp(at) };
+  const s = await getSettings();
+  const total = stopped.intervals.reduce((a, iv) => a + (fromIso(iv.end!) - fromIso(iv.start)), 0);
+  if (discardEnabled(s) && total < discardSeconds(s) * 1000) {
+    return { next: { ...stopped, deleted: true }, discarded: stopped };
+  }
+  return { next: stopped, discarded: null };
+}
+
+function announce(discarded: Array<TimeRecord | null>, seconds: number) {
+  for (const d of discarded) if (d) discardListeners.forEach((l) => l({ snapshot: d, seconds }));
+}
+
 function closeOpenInterval(rec: TimeRecord, now: number): TimeRecord['intervals'] {
   return rec.intervals.map((iv) =>
     iv.end === null ? { ...iv, end: toIso(Math.max(now, fromIso(iv.start))) } : iv,
@@ -37,16 +66,17 @@ async function activeRecords(): Promise<DbRecord[]> {
 }
 
 /** 不允许并发时：停止除 exceptId 外所有进行中/暂停的记录 */
-async function stopOthersIfExclusive(now: number, exceptId?: string) {
+async function stopOthersIfExclusive(now: number, exceptId?: string): Promise<TimeRecord[]> {
   const s = await getSettings();
-  if (s.allowConcurrent) return;
+  if (s.allowConcurrent) return [];
+  const discarded: TimeRecord[] = [];
   for (const r of await activeRecords()) {
     if (r.id === exceptId) continue;
-    const rec = fromDb(r);
-    await db.records.put(
-      toDb({ ...rec, intervals: closeOpenInterval(rec, now), state: 'stopped', updatedAt: stamp(now) }),
-    );
+    const { next, discarded: d } = await finishRecord(fromDb(r), now);
+    await db.records.put(toDb(next));
+    if (d) discarded.push(d);
   }
+  return discarded;
 }
 
 export interface StartOptions {
@@ -59,8 +89,9 @@ export interface StartOptions {
 export async function startRecord(typeId: string, opts: StartOptions = {}): Promise<string> {
   const now = Date.now();
   const start = Math.min(opts.startMs ?? now, now);
-  return db.transaction('rw', db.records, db.meta, async () => {
-    await stopOthersIfExclusive(now);
+  let discarded: TimeRecord[] = [];
+  const id = await db.transaction('rw', db.records, db.meta, async () => {
+    discarded = await stopOthersIfExclusive(now);
     const rec: TimeRecord = {
       id: newId(),
       typeId,
@@ -74,6 +105,8 @@ export async function startRecord(typeId: string, opts: StartOptions = {}): Prom
     await db.records.put(toDb(rec));
     return rec.id;
   });
+  announce(discarded, discardSeconds(await getSettings()));
+  return id;
 }
 
 async function mutateRecord(id: string, fn: (rec: TimeRecord, now: number) => TimeRecord | null) {
@@ -93,8 +126,9 @@ export const pauseRecord = (id: string) =>
 
 export async function resumeRecord(id: string) {
   const now = Date.now();
+  let discarded: TimeRecord[] = [];
   await db.transaction('rw', db.records, db.meta, async () => {
-    await stopOthersIfExclusive(now, id);
+    discarded = await stopOthersIfExclusive(now, id);
     const row = await db.records.get(id);
     if (!row || row.state !== 'paused') return;
     const r = fromDb(row);
@@ -107,18 +141,23 @@ export async function resumeRecord(id: string) {
       }),
     );
   });
+  announce(discarded, discardSeconds(await getSettings()));
 }
 
 /** 在指定时间点停止（番茄钟在后台到点时用，避免停止时间晚于实际结束） */
-export const stopRecordAt = (id: string, at: number) =>
-  mutateRecord(id, (r) =>
-    r.state === 'stopped' ? null : { ...r, intervals: closeOpenInterval(r, at), state: 'stopped' },
-  );
+export async function stopRecordAt(id: string, at: number) {
+  let discarded: TimeRecord | null = null;
+  await db.transaction('rw', db.records, db.meta, async () => {
+    const row = await db.records.get(id);
+    if (!row || row.state === 'stopped' || row.deleted) return;
+    const r = await finishRecord(fromDb(row), at);
+    discarded = r.discarded;
+    await db.records.put(toDb(r.next));
+  });
+  announce([discarded], discardSeconds(await getSettings()));
+}
 
-export const stopRecord = (id: string) =>
-  mutateRecord(id, (r, now) =>
-    r.state === 'stopped' ? null : { ...r, intervals: closeOpenInterval(r, now), state: 'stopped' },
-  );
+export const stopRecord = (id: string) => stopRecordAt(id, Date.now());
 
 /** 点类型格子：没在计时 → 开始；正在计时 → 停止；暂停中 → 继续 */
 export async function toggleType(typeId: string) {

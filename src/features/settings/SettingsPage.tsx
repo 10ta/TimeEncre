@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCounts, useSettings } from '../../db/hooks';
-import { clearAllLocalData, updateSettings } from '../../db/actions';
+import { clearAllLocalData, discardEnabled, discardSeconds, updateSettings } from '../../db/actions';
 import { exportBundle, importBundle, type MergeCount } from '../../io/bundle';
 import { importAtl2 } from '../../io/atl2';
 import { downloadJson, readJsonFile } from '../../io/download';
@@ -51,6 +51,35 @@ export function SettingsPage() {
             <small>关闭后，开始一个新活动会自动停止正在进行的活动</small>
           </span>
         </label>
+        <div className="toggle">
+          <input
+            id="discard-short"
+            type="checkbox"
+            checked={discardEnabled(settings)}
+            onChange={(e) => void updateSettings({ discardShort: e.target.checked })}
+          />
+          <span>
+            <label htmlFor="discard-short">自动作废过短的计时</label>
+            <span className="inline-num">
+              停止时不足
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={600}
+                value={discardSeconds(settings)}
+                disabled={!discardEnabled(settings)}
+                aria-label="秒数"
+                onChange={(e) => {
+                  const v = Math.round(Number(e.target.value));
+                  if (v >= 1 && v <= 600) void updateSettings({ discardShortSec: v });
+                }}
+              />
+              秒的计时直接作废
+            </span>
+            <small>防止误触产生的零碎记录。作废时会提示，可以点“恢复”。补录和编辑时间不受影响。</small>
+          </span>
+        </div>
         <label className="field is-inline">
           <span className="field-label">每周从哪天开始</span>
           <select value={settings.weekStart} onChange={(e) => void updateSettings({ weekStart: Number(e.target.value) })}>

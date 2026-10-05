@@ -41,6 +41,8 @@ export function defaultSettings(): Settings {
     updatedAt: toIso(0),
     weekStart: 1,
     allowConcurrent: true,
+    discardShort: true,
+    discardShortSec: 30,
     pomodoro: {
       workMin: 25,
       shortBreakMin: 5,

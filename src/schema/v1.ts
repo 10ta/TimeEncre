@@ -73,6 +73,9 @@ export const SettingsV1 = z.looseObject({
   /** 0 = 周日，1 = 周一 */
   weekStart: z.number().int().min(0).max(6).default(1),
   allowConcurrent: z.boolean().default(true),
+  /** 停止时总时长不足 discardShortSec 秒的计时自动作废（防误触）；缺省视为开启、30 秒 */
+  discardShort: z.boolean().optional(),
+  discardShortSec: z.number().int().positive().optional(),
   pomodoro: PomodoroV1,
 });
 
