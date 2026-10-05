@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
-import { useTags, useTypes } from '../../db/hooks';
+import { useDuplicateGroups, useTags, useTypes } from '../../db/hooks';
 import {
+  mergeDuplicates,
   moveCatalogItem,
   patchCatalogItem,
   restoreCatalogItem,
@@ -32,6 +33,7 @@ export function CatalogPage() {
           </button>
         ))}
       </div>
+      <DuplicateNotice kind={kind} />
       <CatalogList key={kind} kind={kind} />
     </div>
   );
@@ -207,6 +209,31 @@ function CreateCatalogForm({ kind, defaultColor, onDone }: { kind: CatalogKind; 
         <button type="button" className="btn is-small" onClick={onDone}>取消</button>
         <button type="button" className="btn is-small is-primary" onClick={() => void submit()}>添加</button>
       </div>
+    </div>
+  );
+}
+
+function DuplicateNotice({ kind }: { kind: CatalogKind }) {
+  const groups = useDuplicateGroups(kind);
+  const [result, setResult] = useState<string | null>(null);
+  if (result) return <p className="notice" role="status">{result}</p>;
+  if (!groups || groups.length === 0) return null;
+  return (
+    <div className="notice is-warn dup-notice" role="status">
+      <p>
+        有 {groups.length} 组同名的{LABEL[kind]}：{groups.map((g) => `${g[0].emoji}${g[0].name}×${g.length}`).join('、')}。
+        常见原因是在两台设备上都选了默认类型。合并后每组只保留一个，相关的记录、目标和番茄钟设置会改为指向保留的那个。
+      </p>
+      <button
+        type="button"
+        className="btn is-small is-primary"
+        onClick={async () => {
+          const r = await mergeDuplicates(kind);
+          setResult(`已合并 ${r.groups} 组，移除 ${r.removed} 个重复的${LABEL[kind]}，更新了 ${r.recordsUpdated} 条记录。下次同步后其他设备也会一致。`);
+        }}
+      >
+        合并同名{LABEL[kind]}
+      </button>
     </div>
   );
 }

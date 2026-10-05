@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useActiveRecords, useTypes } from '../../db/hooks';
+import { useActiveRecords, useDuplicateGroups, useTypes } from '../../db/hooks';
 import { seedDefaultTypes } from '../../db/actions';
 import { importAtl2 } from '../../io/atl2';
 import { readJsonFile } from '../../io/download';
@@ -13,6 +13,7 @@ export function TimerPage() {
   const types = useTypes();
   const actives = useActiveRecords();
   const [optionsFor, setOptionsFor] = useState<string | null>(null);
+  const dupTypes = useDuplicateGroups('types');
 
   if (!types || !actives) return null;
   if (types.length === 0) return <Onboarding />;
@@ -22,6 +23,11 @@ export function TimerPage() {
       <header className="page-head">
         <h1>计时</h1>
       </header>
+      {dupTypes && dupTypes.length > 0 && (
+        <p className="notice is-warn">
+          有 {dupTypes.length} 组同名的活动类型。<a href="#/catalog">去合并 ›</a>
+        </p>
+      )}
       <RunningPanel variant="section" />
       <TypeGrid types={types} actives={actives} onOptions={setOptionsFor} />
       <TodayGoals />

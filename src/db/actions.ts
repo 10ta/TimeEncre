@@ -3,7 +3,7 @@ import { db, fromDb, toDb, type DbRecord } from './db';
 import type { CatalogItem, Settings, TimeRecord } from '../schema';
 import { newId } from '../lib/id';
 import { fromIso, toIso } from '../lib/time';
-import { PALETTE, defaultSettings, defaultTypes } from './defaults';
+import { DEFAULT_ID_PREFIX, PALETTE, defaultSettings, defaultTypes } from './defaults';
 
 const SETTINGS_KEY = 'settings';
 const stamp = (ms = Date.now()) => toIso(ms);
@@ -305,8 +305,11 @@ export async function moveCatalogItem(kind: CatalogKind, id: string, dir: -1 | 1
 
 // ---------- 初始化 / 清空 ----------
 
+/** 只补上本地还没有的默认类型（已存在的，哪怕被改过、删过，都不动） */
 export async function seedDefaultTypes() {
-  await db.types.bulkPut(defaultTypes());
+  const seeds = defaultTypes();
+  const existing = await db.types.bulkGet(seeds.map((s) => s.id));
+  await db.types.bulkPut(seeds.filter((_, i) => !existing[i]));
 }
 
 /** 清空本地数据，但保留同步配置（仓库、令牌），方便清空后重新从仓库拉取。
@@ -406,4 +409,90 @@ export async function patchCatalogItem(kind: CatalogKind, id: string, patch: Par
 
 export async function restoreCatalogItem(kind: CatalogKind, snapshot: CatalogItem) {
   await table(kind).put({ ...snapshot, updatedAt: stamp() });
+}
+
+// ---------- 合并同名的类型 / 标签 ----------
+
+/** 名称（去掉首尾空格）相同、未删除的项，两个以上为一组 */
+export async function findDuplicateGroups(kind: CatalogKind): Promise<CatalogItem[][]> {
+  const byName = new Map<string, CatalogItem[]>();
+  for (const x of await table(kind).toArray()) {
+    if (x.deleted) continue;
+    const k = x.name.trim();
+    byName.set(k, [...(byName.get(k) ?? []), x]);
+  }
+  return [...byName.values()].filter((g) => g.length > 1);
+}
+
+/**
+ * 每组保留一个：优先固定 id 的默认项（以后再选默认类型就不会重复），其次被记录引用最多的，再次最早创建的。
+ * 记录、目标、番茄钟设置里对其余项的引用都改指向保留项；其余项标记删除。全部是普通修改，会随同步传到其他设备。
+ */
+export async function mergeDuplicates(kind: CatalogKind): Promise<{ groups: number; removed: number; recordsUpdated: number }> {
+  const groups = await findDuplicateGroups(kind);
+  if (groups.length === 0) return { groups: 0, removed: 0, recordsUpdated: 0 };
+  const now = stamp();
+  return db.transaction('rw', [db.types, db.tags, db.records, db.goals, db.meta], async () => {
+    const records = (await db.records.toArray()).filter((r) => !r.deleted);
+    const refCount = (id: string) =>
+      records.filter((r) => (kind === 'types' ? r.typeId === id : r.tagIds.includes(id))).length;
+    const remap = new Map<string, string>();
+    let removed = 0;
+    const defaultIdByName = new Map(kind === 'types' ? defaultTypes().map((d) => [d.name, d.id]) : []);
+    for (const g of groups) {
+      const ranked = [...g].sort(
+        (a, b) =>
+          Number(b.id.startsWith(DEFAULT_ID_PREFIX)) - Number(a.id.startsWith(DEFAULT_ID_PREFIX)) ||
+          refCount(b.id) - refCount(a.id) ||
+          (a.id < b.id ? -1 : 1),
+      );
+      let keep = ranked[0];
+      // 组里没有固定 id 的默认项、但名称和某个默认类型相同：改用固定 id 作为保留项，
+      // 以后在任何设备上再选默认类型都会和它合并，而不是又多出一份
+      const defaultId = defaultIdByName.get(keep.name.trim());
+      if (!keep.id.startsWith(DEFAULT_ID_PREFIX) && defaultId) {
+        keep = { ...keep, id: defaultId, deleted: false };
+        removed--; // 新建了保留项，下面会把组里原有的全部移除
+      }
+      for (const x of g) if (x.id !== keep.id) remap.set(x.id, keep.id);
+      // 保留项：只要组里有一个没归档，就不归档；排序取最靠前的
+      await table(kind).put({
+        ...keep,
+        archived: g.every((x) => x.archived),
+        order: Math.min(...g.map((x) => x.order)),
+        updatedAt: now,
+      });
+      for (const x of g) {
+        if (x.id === keep.id) continue;
+        await table(kind).put({ ...x, deleted: true, updatedAt: now });
+        removed++;
+      }
+    }
+    const mapIds = (ids: string[]) => [...new Set(ids.map((id) => remap.get(id) ?? id))];
+    let recordsUpdated = 0;
+    for (const r of records) {
+      const next =
+        kind === 'types'
+          ? remap.has(r.typeId) ? { ...r, typeId: remap.get(r.typeId)! } : null
+          : r.tagIds.some((id) => remap.has(id)) ? { ...r, tagIds: mapIds(r.tagIds) } : null;
+      if (next) {
+        await db.records.put({ ...next, updatedAt: now });
+        recordsUpdated++;
+      }
+    }
+    for (const g of await db.goals.toArray()) {
+      const ids = kind === 'types' ? g.typeIds : g.tagIds;
+      if (!ids.some((id) => remap.has(id))) continue;
+      await db.goals.put({ ...g, [kind === 'types' ? 'typeIds' : 'tagIds']: mapIds(ids), updatedAt: now });
+    }
+    const s = await getSettings();
+    const p = s.pomodoro;
+    if (kind === 'types' && p.linkedTypeId && remap.has(p.linkedTypeId)) {
+      await putSettingsRaw({ ...s, pomodoro: { ...p, linkedTypeId: remap.get(p.linkedTypeId)! }, updatedAt: now });
+    }
+    if (kind === 'tags' && (p.linkedTagIds ?? []).some((id) => remap.has(id))) {
+      await putSettingsRaw({ ...s, pomodoro: { ...p, linkedTagIds: mapIds(p.linkedTagIds ?? []) }, updatedAt: now });
+    }
+    return { groups: groups.length, removed, recordsUpdated };
+  });
 }

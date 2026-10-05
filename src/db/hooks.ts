@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type DbRecord } from './db';
-import { getSettings } from './actions';
+import { findDuplicateGroups, getSettings, type CatalogKind } from './actions';
 import type { CatalogItem } from '../schema';
 
 const DAY = 86_400_000;
@@ -73,3 +73,5 @@ export const useFirstRecordMs = () =>
     const all = await db.records.orderBy('startMs').toArray();
     return all.find((r) => !r.deleted)?.startMs ?? null;
   }, []);
+
+export const useDuplicateGroups = (kind: CatalogKind) => useLiveQuery(() => findDuplicateGroups(kind), [kind]);
