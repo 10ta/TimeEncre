@@ -105,7 +105,7 @@ function TypeSelect({ value, onChange }: { value: string; onChange: (id: string)
   const types = useTypes(true);
   return (
     <label className="field">
-      <span className="field-label">类型</span>
+      <span className="field-label">活动</span>
       <select value={value} onChange={(e) => onChange(e.target.value)}>
         {types
           ?.filter((t) => !t.archived || t.id === value)
@@ -126,7 +126,7 @@ function useOverlapNote() {
   const check = async (ivs: IntervalMs[], excludeId?: string) => {
     const hits = await findOverlaps(ivs, excludeId);
     if (!hits.length) return setNote(null), false;
-    const names = [...new Set(hits.map((r) => typeMap?.get(r.typeId)?.name ?? '未知类型'))];
+    const names = [...new Set(hits.map((r) => typeMap?.get(r.typeId)?.name ?? '未知活动'))];
     setNote(`和「${names.slice(0, 3).join('、')}」${names.length > 3 ? '等' : ''}的时间有重叠。允许同时计时时这是正常的；如果是录错了，请调整时间。`);
     return true;
   };
@@ -265,7 +265,7 @@ export function CreateRecordForm({
   const effectiveType = typeId || types?.[0]?.id || '';
 
   const submit = async () => {
-    if (!effectiveType) return setError('请先选择类型');
+    if (!effectiveType) return setError('请先选择活动');
     const ivs = rowsToIntervals(rows);
     const err = validateIntervals(ivs);
     if (err) return setError(err);

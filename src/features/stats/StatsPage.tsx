@@ -43,7 +43,7 @@ export function StatsPage() {
   const typeSlices: Slice[] = [...byType]
     .map(([id, ms]) => {
       const t = typeMap.get(id);
-      return { key: id, label: t ? `${t.emoji} ${t.name}` : '❔ 未知类型', color: t?.color ?? '#999', ms };
+      return { key: id, label: t ? `${t.emoji} ${t.name}` : '❔ 未知活动', color: t?.color ?? '#999', ms };
     })
     .sort((a, b) => b.ms - a.ms);
   const withUntracked = showUntracked && untracked > 0
@@ -93,7 +93,7 @@ export function StatsPage() {
         <div className="tabs" role="tablist" aria-label="分组方式">
           {(
             [
-              ['type', '按类型'],
+              ['type', '按活动'],
               ['tag', '按标签'],
             ] as const
           ).map(([k, label]) => (
@@ -118,7 +118,7 @@ export function StatsPage() {
             {groupBy === 'type' && (
               <Donut
                 slices={withUntracked}
-                label={`各类型占比，共 ${formatHm(tracked)}`}
+                label={`各活动占比，共 ${formatHm(tracked)}`}
                 center={
                   <>
                     <span className="donut-label">已记录</span>
@@ -146,8 +146,8 @@ export function StatsPage() {
           {groupBy === 'type' && tracked > 0 && (
             <p className="hint">
               {showUntracked
-                ? '百分比相对于“各类型时长 + 未记录时间”。未记录时间按实际流逝时间计算，截止到现在。'
-                : '百分比相对于各类型时长之和；同时进行的记录会分别计入。'}
+                ? '百分比相对于“各活动时长 + 未记录时间”。未记录时间按实际流逝时间计算，截止到现在。'
+                : '百分比相对于各活动时长之和；同时进行的记录会分别计入。'}
             </p>
           )}
 
@@ -158,7 +158,7 @@ export function StatsPage() {
                 day={range.from}
                 items={(byDay.get(range.from) ?? []).map((s) => {
                   const t = typeMap.get(s.rec.typeId);
-                  return { key: s.rec.id, spans: s.spans, color: t?.color ?? '#999', label: t?.name ?? '未知类型' };
+                  return { key: s.rec.id, spans: s.spans, color: t?.color ?? '#999', label: t?.name ?? '未知活动' };
                 })}
               />
             ) : (
@@ -167,7 +167,7 @@ export function StatsPage() {
                 data={daily}
                 order={typeSlices.map((s) => s.key)}
                 colorOf={(k) => typeMap.get(k)?.color ?? '#999'}
-                labelOf={(k) => typeMap.get(k)?.name ?? '未知类型'}
+                labelOf={(k) => typeMap.get(k)?.name ?? '未知活动'}
               />
             )}
           </section>

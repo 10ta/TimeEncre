@@ -7,7 +7,6 @@ import { TypeGrid } from './TypeGrid';
 import { TodayStrip } from './TodayStrip';
 import { RecordDialog } from './RecordDialog';
 import { TodayGoals } from '../goals/TodayGoals';
-import { RunningPanel } from './RunningPanel';
 
 export function TimerPage() {
   const types = useTypes();
@@ -25,10 +24,9 @@ export function TimerPage() {
       </header>
       {dupTypes && dupTypes.length > 0 && (
         <p className="notice is-warn">
-          有 {dupTypes.length} 组同名的活动类型。<a href="#/catalog">去合并 ›</a>
+          有 {dupTypes.length} 组同名的活动。<a href="#/catalog">去合并 ›</a>
         </p>
       )}
-      <RunningPanel variant="section" />
       <TypeGrid types={types} actives={actives} onOptions={setOptionsFor} />
       <TodayGoals />
       <TodayStrip />
@@ -45,7 +43,7 @@ function Onboarding() {
     if (!file) return;
     try {
       const r = await importAtl2(await readJsonFile(file));
-      setMsg(`已导入 ${r.added.types} 个类型、${r.added.records} 条记录。`);
+      setMsg(`已导入 ${r.added.types} 个活动、${r.added.records} 条记录。`);
     } catch (e) {
       setMsg((e as Error).message);
     }
@@ -53,18 +51,18 @@ function Onboarding() {
 
   return (
     <div className="page onboarding">
-      <h1>先准备好活动类型</h1>
-      <p className="lead">类型就是计时页上的格子，比如睡眠、工作、学习。之后随时可以增删改。</p>
+      <h1>先准备好活动</h1>
+      <p className="lead">活动就是计时页上的格子，比如睡眠、工作、学习。之后随时可以增删改。</p>
       <div className="onboarding-actions">
         <button type="button" className="choice" onClick={() => void seedDefaultTypes()}>
           <span className="choice-emoji">🗂️</span>
-          <span className="choice-title">用一套常用类型</span>
+          <span className="choice-title">用一套常用活动</span>
           <span className="choice-desc">睡眠、工作、吃饭、学习等 14 个</span>
         </button>
         <button type="button" className="choice" onClick={() => fileRef.current?.click()}>
           <span className="choice-emoji">📥</span>
           <span className="choice-title">从 A Time Logger 2 导入</span>
-          <span className="choice-desc">选择 .ttbkp 备份文件，类型和记录一起导入</span>
+          <span className="choice-desc">选择 .ttbkp 备份文件，活动和记录一起导入</span>
         </button>
         <a className="choice" href="#/settings">
           <span className="choice-emoji">🔄</span>
@@ -74,7 +72,7 @@ function Onboarding() {
         <a className="choice" href="#/catalog">
           <span className="choice-emoji">✏️</span>
           <span className="choice-title">自己从头建</span>
-          <span className="choice-desc">逐个添加类型</span>
+          <span className="choice-desc">逐个添加活动</span>
         </a>
       </div>
       <input

@@ -34,7 +34,7 @@ export function TodayStrip() {
             return (
               <li key={typeId} style={{ '--c': t?.color ?? '#888', '--w': `${(ms / max) * 100}%` } as CSSProperties}>
                 <span className="today-name">
-                  {t?.emoji} {t?.name ?? '未知类型'}
+                  {t?.emoji} {t?.name ?? '未知活动'}
                 </span>
                 <span className="today-bar" aria-hidden="true">
                   <span />

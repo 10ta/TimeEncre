@@ -88,14 +88,14 @@ export function SettingsPage() {
           </select>
         </label>
         <p className="hint">
-          <a href="#/catalog">管理活动类型与标签</a>
+          <a href="#/catalog">管理活动与标签</a>
         </p>
       </section>
 
       <section>
         <h2>数据</h2>
         <p className="hint">
-          当前本地共有 {counts?.types ?? 0} 个类型、{counts?.tags ?? 0} 个标签、{counts?.records ?? 0} 条记录。
+          当前本地共有 {counts?.types ?? 0} 个活动、{counts?.tags ?? 0} 个标签、{counts?.records ?? 0} 条记录。
           {persisted === false && ' 浏览器尚未授予持久存储，清理浏览器数据会丢失记录，请定期导出。'}
           {persisted === true && ' 浏览器已授予持久存储。'}
         </p>
@@ -126,7 +126,7 @@ export function SettingsPage() {
             if (f)
               void run(async () => {
                 const r = await importBundle(await readJsonFile(f));
-                return `导入完成。类型：${fmt(r.types)}；标签：${fmt(r.tags)}；记录：${fmt(r.records)}。较旧的数据已跳过。`;
+                return `导入完成。活动：${fmt(r.types)}；标签：${fmt(r.tags)}；记录：${fmt(r.records)}。较旧的数据已跳过。`;
               });
           }}
         />
@@ -148,7 +148,7 @@ export function SettingsPage() {
                   r.skipped.goals && `${r.skipped.goals} 个目标（暂不支持导入）`,
                 ].filter(Boolean);
                 return (
-                  `已导入 ${r.added.types} 个类型、${r.added.tags} 个标签、${r.added.records} 条记录。` +
+                  `已导入 ${r.added.types} 个活动、${r.added.tags} 个标签、${r.added.records} 条记录。` +
                   (skipped.length ? ` 跳过：${skipped.join('，')}。` : '')
                 );
               });
@@ -180,7 +180,7 @@ export function SettingsPage() {
 
       <section className="danger-zone">
         <h2>清空本地数据</h2>
-        <p className="hint">删除这台设备浏览器里的全部类型、标签和记录，无法撤销。仓库设置会保留，之后点同步即可从仓库重新拉取；没有连接仓库的话，请先导出备份。</p>
+        <p className="hint">删除这台设备浏览器里的全部活动、标签和记录，无法撤销。仓库设置会保留，之后点同步即可从仓库重新拉取；没有连接仓库的话，请先导出备份。</p>
         <div className="row">
           <input
             value={clearText}

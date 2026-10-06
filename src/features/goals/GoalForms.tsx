@@ -41,7 +41,7 @@ function GoalFields({
         <span>分钟</span>
       </div>
       <div className="field">
-        <span className="field-label">计入哪些类型</span>
+        <span className="field-label">计入哪些活动</span>
         <div className="chips">
           {types?.map((t) => (
             <button key={t.id} type="button" className={`chip${value.typeIds.includes(t.id) ? ' is-on' : ''}`} style={{ '--c': t.color } as CSSProperties} aria-pressed={value.typeIds.includes(t.id)} onClick={() => onChange({ typeIds: toggle(value.typeIds, t.id) })}>

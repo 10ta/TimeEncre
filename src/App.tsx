@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { TimerPage } from './features/timer/TimerPage';
-import { RunningPanel } from './features/timer/RunningPanel';
+import { RunningDock } from './features/timer/RunningDock';
 import { CatalogPage } from './features/catalog/CatalogPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { HistoryPage } from './features/history/HistoryPage';
@@ -15,11 +15,11 @@ import { ErrorBoundary } from './ui/ErrorBoundary';
 
 const NAV = [
   { key: 'timer', label: '计时', icon: '⏱️' },
-  { key: 'pomodoro', label: '番茄钟', icon: '🍅' },
+  { key: 'pomodoro', label: 'Pomo', icon: '🍅' },
   { key: 'history', label: '历史', icon: '🗂️' },
   { key: 'stats', label: '统计', icon: '📊' },
   { key: 'goals', label: '目标', icon: '🎯' },
-  { key: 'catalog', label: '类型与标签', icon: '🏷️', wideOnly: true },
+  { key: 'catalog', label: '类型', icon: '🏷️', wideOnly: true },
   { key: 'settings', label: '设置', icon: '⚙️' },
 ] as const;
 
@@ -89,8 +89,11 @@ export function App() {
       <ErrorBoundary area="自动同步">
         <AutoSync />
       </ErrorBoundary>
-      <ErrorBoundary area="番茄钟">
+      <ErrorBoundary area="Pomo">
         <PomodoroRunner baseTitle={baseTitle} />
+      </ErrorBoundary>
+      <ErrorBoundary area="进行中">
+        <RunningDock />
       </ErrorBoundary>
       {/* 所有提示放在同一个容器里依次排列，互不遮挡 */}
       <div className="toasts">
@@ -102,11 +105,6 @@ export function App() {
         </ErrorBoundary>
       </div>
       <main className="main">
-        {route !== 'timer' && (
-          <ErrorBoundary area="进行中">
-            <RunningPanel variant="strip" />
-          </ErrorBoundary>
-        )}
         <ErrorBoundary key={route} area="页面">
           <Page route={route} />
         </ErrorBoundary>

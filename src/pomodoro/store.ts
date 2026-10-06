@@ -139,7 +139,7 @@ export const useOrphanRecords = (pomo: PomoState | undefined) =>
 export const adoptRecord = (id: string) =>
   exclusive(async () => {
     const s = await getPomo();
-    if (s.status !== 'idle') throw new Error('请先重置当前番茄钟');
+    if (s.status !== 'idle') throw new Error('请先重置当前的 Pomo');
     const row: DbRecord | undefined = await db.records.get(id);
     if (!row || row.deleted || row.state === 'stopped') return;
     let closed = 0;

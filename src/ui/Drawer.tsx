@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useOutsideClose } from './useOutsideClose';
 
 /**
  * 在条目下方展开 / 收起的抽屉。收起动画结束后才卸载内容。
@@ -16,24 +17,7 @@ export function Drawer({ open, onClose, children }: { open: boolean; onClose: ()
     const t = window.setTimeout(() => setRender(false), 220);
     return () => window.clearTimeout(t);
   }, [open]);
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      const t = e.target as Element | null;
-      if (!t || !t.isConnected) return;
-      if (ref.current?.contains(t)) return;
-      if (t.closest('[aria-expanded], dialog, .toast')) return;
-      closeRef.current();
-    };
-    // 推迟注册，避免打开它的那次点击立刻把它关掉
-    const id = window.setTimeout(() => document.addEventListener('pointerdown', onDown), 0);
-    return () => {
-      window.clearTimeout(id);
-      document.removeEventListener('pointerdown', onDown);
-    };
-  }, [open]);
+  useOutsideClose(open, ref, onClose);
   return (
     <div
       ref={ref}

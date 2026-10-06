@@ -36,7 +36,7 @@ export function GoalsPage() {
 
       {goals.length === 0 && (
         <p className="empty">
-          还没有目标。可以给类型或标签设定每天、每周、每月的时长，比如“每周至少学习 10 小时”“每天娱乐至多 1.5 小时”。
+          还没有目标。可以给活动或标签设定每天、每周、每月的时长，比如“每周至少学习 10 小时”“每天娱乐至多 1.5 小时”。
         </p>
       )}
 
@@ -55,7 +55,7 @@ export function GoalsPage() {
                   <span className={`goal-status is-${status}`}>{STATUS_TEXT[status]}</span>
                 </span>
                 <span className="goal-scope">
-                  {items.map((x) => `${x.emoji}${x.name}`).join('、') || '（引用的类型或标签已删除）'}
+                  {items.map((x) => `${x.emoji}${x.name}`).join('、') || '（引用的活动或标签已删除）'}
                   {g.name && ` · ${PERIOD_LABEL[g.period]}${DIRECTION_LABEL[g.direction]} ${formatHm(target)}`}
                 </span>
                 <span className="goal-progress">

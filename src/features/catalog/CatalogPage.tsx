@@ -17,24 +17,21 @@ import { IconButton } from '../../ui/Icon';
 import { Drawer } from '../../ui/Drawer';
 import { useAutosave } from '../../ui/useAutosave';
 
-const LABEL: Record<CatalogKind, string> = { types: '活动类型', tags: '标签' };
+const LABEL: Record<CatalogKind, string> = { types: '活动', tags: '标签' };
 
 export function CatalogPage() {
-  const [kind, setKind] = useState<CatalogKind>('types');
   return (
-    <div className="page">
+    <div className="page catalog">
       <header className="page-head">
-        <h1>类型与标签</h1>
+        <h1>类型</h1>
       </header>
-      <div className="tabs" role="tablist">
-        {(['types', 'tags'] as const).map((k) => (
-          <button key={k} type="button" role="tab" aria-selected={kind === k} className={kind === k ? 'is-on' : undefined} onClick={() => setKind(k)}>
-            {LABEL[k]}
-          </button>
-        ))}
-      </div>
-      <DuplicateNotice kind={kind} />
-      <CatalogList key={kind} kind={kind} />
+      {(['types', 'tags'] as const).map((kind) => (
+        <section key={kind} className="catalog-section" aria-labelledby={`cat-${kind}`}>
+          <h2 id={`cat-${kind}`}>{LABEL[kind]}</h2>
+          <DuplicateNotice kind={kind} />
+          <CatalogList kind={kind} />
+        </section>
+      ))}
     </div>
   );
 }
@@ -70,8 +67,9 @@ function CatalogList({ kind }: { kind: CatalogKind }) {
   return (
     <>
       <p className="hint">
-        {kind === 'types' ? '计时页按这里的顺序排列。归档后不再出现在计时页，历史记录不受影响。' : '标签平级，可以给任何记录打多个。'}
-        点一行展开编辑，改动即时保存。
+        {kind === 'types'
+          ? '计时页的格子按这里的顺序排列。归档后不再出现在计时页，历史记录不受影响。点一行展开编辑，改动即时保存。'
+          : '标签平级，一条记录可以打多个。'}
       </p>
 
       <ul className="cat-list">
@@ -222,7 +220,7 @@ function DuplicateNotice({ kind }: { kind: CatalogKind }) {
     <div className="notice is-warn dup-notice" role="status">
       <p>
         有 {groups.length} 组同名的{LABEL[kind]}：{groups.map((g) => `${g[0].emoji}${g[0].name}×${g.length}`).join('、')}。
-        常见原因是在两台设备上都选了默认类型。合并后每组只保留一个，相关的记录、目标和番茄钟设置会改为指向保留的那个。
+        常见原因是在两台设备上都选了默认活动。合并后每组只保留一个，相关的记录、目标和 Pomo 设置会改为指向保留的那个。
       </p>
       <button
         type="button"

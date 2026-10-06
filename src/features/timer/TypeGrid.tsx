@@ -24,7 +24,7 @@ export function TypeGrid({
         <Tile key={t.id} type={t} active={latestByType.get(t.id)} now={now} onOptions={() => onOptions(t.id)} />
       ))}
       <li>
-        <a className="tile is-manage" href="#/catalog" title="增删、排序、归档类型和标签">
+        <a className="tile is-manage" href="#/catalog" title="增删、排序、归档活动和标签">
           <span className="tile-emoji" aria-hidden="true">⚙️</span>
           <span className="tile-name">管理</span>
         </a>
@@ -64,7 +64,10 @@ function Tile({
       >
         <span className="tile-emoji" aria-hidden="true">{type.emoji}</span>
         <span className="tile-name">{type.name}</span>
-        {active && <span className="tile-time">{formatClock(totalMs(recordSpans(active, now)))}</span>}
+        {/* 时间这一行始终占位，开始 / 停止计时不会改变格子高度、带动下面的内容移动 */}
+        <span className={`tile-time${active ? '' : ' is-empty'}`} aria-hidden={!active}>
+          {active ? formatClock(totalMs(recordSpans(active, now))) : '00:00:00'}
+        </span>
       </button>
     </li>
   );

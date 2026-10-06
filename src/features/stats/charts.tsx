@@ -97,7 +97,7 @@ export function DailyBars({
   const dense = days.length > 14;
 
   return (
-    <svg className="bars" viewBox={`0 0 ${W} ${Hh}`} role="img" aria-label="每日时长按类型堆叠">
+    <svg className="bars" viewBox={`0 0 ${W} ${Hh}`} role="img" aria-label="每日时长按活动堆叠">
       {Array.from({ length: Math.floor(max / step) + 1 }, (_, i) => i * step).map((v) => (
         <g key={v}>
           <line x1={pad.l} x2={W - pad.r} y1={y(v)} y2={y(v)} className="grid" />

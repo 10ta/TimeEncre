@@ -374,7 +374,7 @@ export interface GoalDraft {
 }
 
 export async function saveGoal(d: GoalDraft): Promise<string> {
-  if (d.typeIds.length === 0 && d.tagIds.length === 0) throw new Error('至少选择一个类型或标签');
+  if (d.typeIds.length === 0 && d.tagIds.length === 0) throw new Error('至少选择一个活动或标签');
   if (!(d.targetMinutes > 0)) throw new Error('目标时长必须大于 0');
   const id = d.id ?? newId();
   await db.goals.put({
@@ -432,7 +432,7 @@ export async function patchGoal(id: string, patch: Partial<Omit<GoalDraft, 'id'>
   const cur = await db.goals.get(id);
   if (!cur) return;
   const next = { ...cur, ...patch };
-  if (next.typeIds.length === 0 && next.tagIds.length === 0) throw new Error('至少选择一个类型或标签');
+  if (next.typeIds.length === 0 && next.tagIds.length === 0) throw new Error('至少选择一个活动或标签');
   if (!(next.targetMinutes > 0)) throw new Error('目标时长必须大于 0');
   await db.goals.put({ ...next, updatedAt: stamp() });
 }

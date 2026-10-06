@@ -18,6 +18,7 @@ import {
   usePomo,
 } from '../../pomodoro/store';
 import { stopRecord } from '../../db/actions';
+import { PomoRing } from './PomoRing';
 
 const PHASES: Array<[Phase, string]> = [
   ['work', '专注'],
@@ -59,19 +60,17 @@ export function PomodoroPage() {
   const setCfg = (patch: Partial<typeof cfg>) => void updateSettings({ pomodoro: { ...cfg, ...patch } });
   const num = (v: string, min: number, max: number) => Math.min(max, Math.max(min, Math.round(Number(v) || min)));
 
-  const r = 120;
-  const c = 2 * Math.PI * r;
 
   return (
     <div className="page pomodoro">
       <header className="page-head">
-        <h1>番茄钟</h1>
+        <h1>Pomo</h1>
       </header>
 
       {orphans && orphans.length > 0 && (
         <div className="notice is-warn pomo-orphans" role="status">
           <p>
-            有 {orphans.length} 条“🍅 番茄钟”记录正在计时，但没有关联到当前番茄钟（可能是异常中断留下的，或来自另一台设备）。
+            有 {orphans.length} 条“🍅 番茄钟”记录正在计时，但没有关联到当前的 Pomo（可能是异常中断留下的，或来自另一台设备）。
           </p>
           <ul>
             {orphans.map((r) => {
@@ -79,14 +78,14 @@ export function PomodoroPage() {
               return (
                 <li key={r.id}>
                   <span>
-                    {t?.emoji} {t?.name ?? '未知类型'} · 已计时 {formatClock(totalMs(recordSpans(r, now)))}
+                    {t?.emoji} {t?.name ?? '未知活动'} · 已计时 {formatClock(totalMs(recordSpans(r, now)))}
                     {r.state === 'paused' && '（已暂停）'}
                   </span>
                   <button
                     type="button"
                     className="btn is-small is-primary"
                     disabled={pomo.status !== 'idle'}
-                    title={pomo.status !== 'idle' ? '先重置当前番茄钟' : '番茄钟从这条记录已计时的进度继续'}
+                    title={pomo.status !== 'idle' ? '先重置当前的 Pomo' : 'Pomo 从这条记录已计时的进度继续'}
                     onClick={() => {
                       unlockAudio();
                       void adoptRecord(r.id);
@@ -122,57 +121,27 @@ export function PomodoroPage() {
             ))}
           </div>
 
-          <div className="pomo-ring">
-            <svg viewBox="0 0 280 280" aria-hidden="true">
-              <circle cx="140" cy="140" r={r} fill="none" stroke="var(--line)" strokeWidth="10" />
-              {frac > 0 && <circle
-                cx="140"
-                cy="140"
-                r={r}
-                fill="none"
-                stroke="var(--c)"
-                strokeWidth="10"
-                strokeLinecap="round"
-                strokeDasharray={`${frac * c} ${c}`}
-                transform="rotate(-90 140 140)"
-              />}
-            </svg>
-            <div className="pomo-center">
-              <span className="pomo-phase">
-                {isWork ? (linked ? `${linked.emoji} ${linked.name}` : '🍅 专注') : pomo.phase === 'long' ? '☕ 长休' : '☕ 短休'}
-              </span>
-              <span className="pomo-time" role="timer" aria-live="off">{mmss(left)}</span>
-              <span className="pomo-count">
-                第 {Math.max(1, nth)} / {cfg.cyclesBeforeLong} 个
-                {pomo.status === 'paused' && ' · 已暂停'}
-              </span>
-            </div>
-          </div>
-
-          <div className="pomo-actions">
-            {pomo.status === 'running' ? (
-              <button type="button" className="btn is-primary is-big" onClick={() => void pausePomo()}>暂停</button>
-            ) : (
-              <button
-                type="button"
-                className="btn is-primary is-big"
-                onClick={() => {
-                  unlockAudio();
-                  void startPomo();
-                }}
-              >
-                {pomo.status === 'paused' ? '继续' : isWork ? '开始专注' : '开始休息'}
-              </button>
-            )}
-            {pomo.status !== 'idle' && (
-              <button type="button" className="btn" onClick={() => void skipPomo()}>
-                {isWork ? '提前结束，去休息' : '结束休息'}
-              </button>
-            )}
-            {(pomo.status !== 'idle' || pomo.done > 0) && (
-              <button type="button" className="btn is-quiet" onClick={() => void resetPomo()}>重置</button>
-            )}
-          </div>
+          <PomoRing
+            phase={pomo.phase}
+            status={pomo.status}
+            frac={frac}
+            color={color}
+            label={isWork ? (linked ? `${linked.emoji} ${linked.name}` : '🍅 专注') : pomo.phase === 'long' ? '☕ 长休' : '☕ 短休'}
+            time={mmss(left)}
+            sub={
+              <>
+                第 {Math.max(1, nth)} / {cfg.cyclesBeforeLong} 个{pomo.status === 'paused' && ' · 已暂停'}
+              </>
+            }
+            canReset={pomo.status !== 'idle' || pomo.done > 0}
+            onStart={() => {
+              unlockAudio();
+              void startPomo();
+            }}
+            onPause={() => void pausePomo()}
+            onEnd={() => void skipPomo()}
+            onReset={() => void resetPomo()}
+          />
 
           <p className="pomo-today">
             今天完成 <strong>{pomo.today.count}</strong> 个番茄{pomo.today.focusMs > 0 && `，专注 ${formatHm(pomo.today.focusMs)}`}
@@ -194,8 +163,8 @@ export function PomodoroPage() {
           </label>
           <TagPicker value={linkedTags(cfg)} onChange={(ids) => setCfg({ linkedTagIds: ids })} />
           <p className="hint">
-            选了类型后，每段专注都会自动生成一条该类型的记录（备注“🍅 番茄钟”），并带上这里选的标签，出现在历史、统计和目标里。
-            在顶部横条或计时页暂停、继续、停止这条记录，番茄钟会跟着变。
+            选了活动后，每段专注都会自动生成一条该活动的记录（备注“🍅 番茄钟”），并带上这里选的标签，出现在历史、统计和目标里。
+            在底部的进行中栏暂停、继续、停止这条记录，Pomo 会跟着变。
           </p>
           <div className="pomo-grid">
             {(

@@ -98,8 +98,8 @@ export function HistoryPage() {
           className="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="搜索类型、备注或标签"
-          aria-label="搜索类型、备注或标签"
+          placeholder="搜索活动、备注或标签"
+          aria-label="搜索活动、备注或标签"
         />
         <label className="toggle is-compact">
           <input type="checkbox" checked={showGaps} onChange={(e) => setShowGaps(e.target.checked)} />
@@ -204,8 +204,8 @@ function Entry({
         <span className="entry-emoji" aria-hidden="true">{type?.emoji ?? '❔'}</span>
         <span className="entry-body">
           <span className="entry-title">
-            {type?.name ?? '未知类型'}
-            {type?.deleted && <span className="badge">已删除的类型</span>}
+            {type?.name ?? '未知活动'}
+            {type?.deleted && <span className="badge">已删除的活动</span>}
             {r.state === 'running' && <span className="badge is-live">进行中</span>}
             {r.state === 'paused' && <span className="badge">已暂停</span>}
           </span>
