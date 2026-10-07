@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react';
+import { commitAndClose } from './commitAndClose';
 
 /**
  * 打开时，点击 ref 以外的地方就关闭。点的是另一个带 aria-expanded 的开关（它自己会切换）、
@@ -14,7 +15,7 @@ export function useOutsideClose(open: boolean, ref: RefObject<HTMLElement | null
       if (!t || !t.isConnected) return;
       if (ref.current?.contains(t)) return;
       if (t.closest('[aria-expanded], dialog, .toast')) return;
-      closeRef.current();
+      commitAndClose(ref.current, () => closeRef.current());
     };
     const id = window.setTimeout(() => document.addEventListener('pointerdown', onDown), 0);
     return () => {

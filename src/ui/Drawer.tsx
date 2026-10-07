@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useOutsideClose } from './useOutsideClose';
+import { commitAndClose } from './commitAndClose';
 
 /**
  * 在条目下方展开 / 收起的抽屉。收起动画结束后才卸载内容。
@@ -25,7 +26,7 @@ export function Drawer({ open, onClose, children }: { open: boolean; onClose: ()
       onKeyDown={(e) => {
         if (e.key === 'Escape' && open) {
           e.stopPropagation();
-          onClose();
+          commitAndClose(ref.current, onClose);
         }
       }}
     >

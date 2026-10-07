@@ -7,6 +7,7 @@ import { fromDb } from '../../db/db';
 import { useNow } from '../../ui/hooks';
 import { IconButton } from '../../ui/Icon';
 import { useOutsideClose } from '../../ui/useOutsideClose';
+import { commitAndClose } from '../../ui/commitAndClose';
 import { formatClock, recordSpans, totalMs } from '../../lib/time';
 import { LiveRecordForm } from '../records/RecordForms';
 
@@ -41,7 +42,7 @@ export function RunningDock() {
           ref={sheetRef}
           className="dock-sheet"
           style={{ '--c': openType?.color ?? '#888' } as CSSProperties}
-          onKeyDown={(e) => e.key === 'Escape' && setOpenId(null)}
+          onKeyDown={(e) => e.key === 'Escape' && commitAndClose(sheetRef.current, () => setOpenId(null))}
         >
           <header className="dock-sheet-head">
             <span className="run-emoji" aria-hidden="true">{openType?.emoji ?? '❔'}</span>
@@ -67,7 +68,9 @@ export function RunningDock() {
                 className="dock-main"
                 aria-expanded={openId === r.id}
                 aria-label={`编辑 ${name}`}
-                onClick={() => setOpenId(openId === r.id ? null : r.id)}
+                onClick={() =>
+                  openId ? commitAndClose(sheetRef.current, () => setOpenId(openId === r.id ? null : r.id)) : setOpenId(r.id)
+                }
               >
                 <span className="run-emoji" aria-hidden="true">{type?.emoji ?? '❔'}</span>
                 <span className="dock-text">

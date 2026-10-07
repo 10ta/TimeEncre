@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { TagPicker } from '../../ui/fields';
 import { IconButton } from '../../ui/Icon';
 import { useAutosave } from '../../ui/useAutosave';
+import { commitAndClose } from '../../ui/commitAndClose';
 import { useTypeMap, useTypes } from '../../db/hooks';
 import {
   createManualRecord,
@@ -173,12 +174,14 @@ export function LiveRecordForm({ rec, onClose }: { rec: TimeRecord; onClose: () 
 
   const intervals = useMemo(() => rowsToIntervals(rows), [rows]);
   const savedIntervals = useMemo(() => recIntervals(rec), [rec]);
-  useAutosave(rowsTouched ? intervals : savedIntervals, savedIntervals, (ivs) => {
+  const flushRows = useAutosave(rowsTouched ? intervals : savedIntervals, savedIntervals, (ivs) => {
     const err = validateIntervals(ivs);
     if (err) return setError(err);
     void save({ intervals: ivs });
   });
-  useAutosave(comment.trim(), rec.comment, (c) => void save({ comment: c }), 600);
+  const flushComment = useAutosave(comment.trim(), rec.comment, (c) => void save({ comment: c }), 600);
+  const formRef = useRef<HTMLDivElement>(null);
+  const close = () => commitAndClose(formRef.current, onClose);
 
   const changed =
     JSON.stringify([rec.typeId, rec.comment, rec.tagIds, rec.intervals]) !==
@@ -196,7 +199,15 @@ export function LiveRecordForm({ rec, onClose }: { rec: TimeRecord; onClose: () 
   };
 
   return (
-    <div className="inline-form">
+    <div
+      ref={formRef}
+      className="inline-form"
+      onBlurCapture={() => {
+        // 任何输入框失焦就立即保存，不等延时
+        flushRows();
+        flushComment();
+      }}
+    >
       <TypeSelect value={rec.typeId} onChange={(typeId) => void save({ typeId })} />
       <IntervalsEditor
         rows={rows}
@@ -235,7 +246,7 @@ export function LiveRecordForm({ rec, onClose }: { rec: TimeRecord; onClose: () 
         ) : (
           <button type="button" className="btn is-small is-ghost-danger" onClick={() => setConfirmDelete(true)}>删除</button>
         )}
-        <button type="button" className="btn is-small" onClick={onClose}>收起</button>
+        <button type="button" className="btn is-small" onClick={close}>收起</button>
       </div>
     </div>
   );

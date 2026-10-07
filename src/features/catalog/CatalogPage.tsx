@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { useDuplicateGroups, useTags, useTypes } from '../../db/hooks';
 import {
   mergeDuplicates,
@@ -16,6 +16,7 @@ import { ColorField, EmojiField } from '../../ui/fields';
 import { IconButton } from '../../ui/Icon';
 import { Drawer } from '../../ui/Drawer';
 import { useAutosave } from '../../ui/useAutosave';
+import { commitAndClose } from '../../ui/commitAndClose';
 
 const LABEL: Record<CatalogKind, string> = { types: '活动', tags: '标签' };
 
@@ -137,9 +138,10 @@ function LiveCatalogForm({ kind, item, onClose }: { kind: CatalogKind; item: Cat
       setError((e as Error).message);
     }
   };
-  useAutosave(name.trim(), item.name, (n) => void save({ name: n }), 500);
+  const flushName = useAutosave(name.trim(), item.name, (n) => void save({ name: n }), 500);
   // 拖动取色器时会连续触发，稍等再存
-  useAutosave(color, item.color, (c) => void save({ color: c }), 250);
+  const flushColor = useAutosave(color, item.color, (c) => void save({ color: c }), 250);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const changed =
     JSON.stringify([item.name, item.emoji, item.color]) !== JSON.stringify([snapshot.name, snapshot.emoji, snapshot.color]);
@@ -152,7 +154,14 @@ function LiveCatalogForm({ kind, item, onClose }: { kind: CatalogKind; item: Cat
   };
 
   return (
-    <div className="inline-form">
+    <div
+      ref={formRef}
+      className="inline-form"
+      onBlurCapture={() => {
+        flushName();
+        flushColor();
+      }}
+    >
       <label className="field">
         <span className="field-label">名称</span>
         <input value={name} onChange={(e) => setName(e.target.value)} />
@@ -172,7 +181,7 @@ function LiveCatalogForm({ kind, item, onClose }: { kind: CatalogKind; item: Cat
         ) : (
           <button type="button" className="btn is-small is-ghost-danger" onClick={() => setConfirmDelete(true)}>删除</button>
         )}
-        <button type="button" className="btn is-small" onClick={onClose}>收起</button>
+        <button type="button" className="btn is-small" onClick={() => commitAndClose(formRef.current, onClose)}>收起</button>
       </div>
     </div>
   );

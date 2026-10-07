@@ -1,9 +1,10 @@
 // 目标表单。LiveGoalForm：原地编辑，即时保存，可撤销；CreateGoalForm：新建，点“添加”。
-import { useState, type CSSProperties } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { useTags, useTypes } from '../../db/hooks';
 import { deleteGoal, patchGoal, restoreGoal, saveGoal, type GoalDraft } from '../../db/actions';
 import type { Goal } from '../../schema';
 import { useAutosave } from '../../ui/useAutosave';
+import { commitAndClose } from '../../ui/commitAndClose';
 import { DIRECTION_LABEL, PERIOD_LABEL } from './goalView';
 
 type Fields = Omit<GoalDraft, 'id'>;
@@ -89,8 +90,9 @@ export function LiveGoalForm({ goal, onClose }: { goal: Goal; onClose: () => voi
       setError((e as Error).message);
     }
   };
-  useAutosave(minutesOf(hours, minutes), goal.targetMinutes, (targetMinutes) => void save({ targetMinutes }), 500);
-  useAutosave(name.trim(), goal.name, (n) => void save({ name: n }), 600);
+  const flushTarget = useAutosave(minutesOf(hours, minutes), goal.targetMinutes, (targetMinutes) => void save({ targetMinutes }), 500);
+  const flushName = useAutosave(name.trim(), goal.name, (n) => void save({ name: n }), 600);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const changed =
     JSON.stringify([goal.name, goal.typeIds, goal.tagIds, goal.period, goal.direction, goal.targetMinutes]) !==
@@ -106,7 +108,14 @@ export function LiveGoalForm({ goal, onClose }: { goal: Goal; onClose: () => voi
   };
 
   return (
-    <div className="inline-form">
+    <div
+      ref={formRef}
+      className="inline-form"
+      onBlurCapture={() => {
+        flushTarget();
+        flushName();
+      }}
+    >
       <GoalFields value={goal} onChange={(p) => void save(p)} hours={hours} minutes={minutes} onHours={setHours} onMinutes={setMinutes} />
       <label className="field">
         <span className="field-label">名称（可选）</span>
@@ -122,7 +131,7 @@ export function LiveGoalForm({ goal, onClose }: { goal: Goal; onClose: () => voi
         ) : (
           <button type="button" className="btn is-small is-ghost-danger" onClick={() => setConfirmDelete(true)}>删除</button>
         )}
-        <button type="button" className="btn is-small" onClick={onClose}>收起</button>
+        <button type="button" className="btn is-small" onClick={() => commitAndClose(formRef.current, onClose)}>收起</button>
       </div>
     </div>
   );
