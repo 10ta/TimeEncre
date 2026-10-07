@@ -4,6 +4,7 @@ import type { CatalogItem, Settings, TimeRecord } from '../schema';
 import { newId } from '../lib/id';
 import { fromIso, toIso } from '../lib/time';
 import { DEFAULT_ID_PREFIX, PALETTE, defaultSettings, defaultTypes } from './defaults';
+import { fillIntervals, gapNeighbors } from '../lib/gaps';
 
 const SETTINGS_KEY = 'settings';
 const stamp = (ms = Date.now()) => toIso(ms);
@@ -566,4 +567,19 @@ export async function suggestBackfillRange(now = Date.now()): Promise<{ start: n
     if (s >= start) end = Math.min(end, floorMin(s));
   }
   return end - start >= MIN ? { start, end } : fallback;
+}
+
+// ---------- 填充空档 ----------
+
+/** 用前一段（延长其结束）或后一段（提前其开始）填满空档 */
+export async function fillGap(gap: { start: number; end: number }, mode: 'prev' | 'next', now = Date.now()) {
+  const candidates = (
+    await db.records.where('startMs').between(gap.start - 3 * DAY_MS, gap.end + DAY_MS, true, true).toArray()
+  ).filter((r) => !r.deleted);
+  const n = gapNeighbors(candidates, gap)[mode];
+  if (!n) throw new Error(mode === 'prev' ? '空档前面没有记录' : '空档后面没有记录');
+  const row = candidates.find((r) => r.id === n.recId)!;
+  const ivs = fillIntervals(row, n, gap, mode, now);
+  if (!ivs) throw new Error('相邻的记录刚刚被修改过，请重试');
+  await patchRecord(row.id, { intervals: ivs });
 }

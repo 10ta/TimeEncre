@@ -2478,3 +2478,276 @@ kbd {
 .catalog-section > h2 {
   margin-bottom: 0.5rem;
 }
+
+/* ---------- 空档快捷操作 ---------- */
+
+.gap-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.gap-row .gap {
+  flex: 1;
+  min-width: 0;
+}
+
+.gap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.gap-actions .btn.is-small {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+}
+
+.gap-error {
+  font-size: 0.8rem;
+  color: var(--danger);
+}
+
+.gap-sheet-range {
+  margin-left: auto;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.gap-sheet-actions .gap-actions {
+  justify-content: flex-start;
+  padding: 0 0 0.75rem;
+  border-bottom: 0;
+}
+
+.gap-sheet-actions .btn.is-small {
+  font-size: 0.9rem;
+  padding: 0.45rem 0.9rem;
+}
+
+.gap-sheet-or {
+  margin: 0.25rem 0 0.5rem;
+}
+
+/* 日历 / 空档的浮动面板：位置与进行中栏的面板一致，留出底部栏的位置 */
+.floating-sheet-wrap {
+  position: fixed;
+  left: var(--nav-w);
+  right: 0;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 16;
+  display: flex;
+  justify-content: center;
+  padding: 0 1rem;
+  pointer-events: none;
+}
+
+body.has-dock .floating-sheet-wrap {
+  bottom: calc(5rem + env(safe-area-inset-bottom));
+}
+
+@media (max-width: 759px) {
+  .floating-sheet-wrap {
+    left: 0;
+    bottom: calc(4.6rem + env(safe-area-inset-bottom));
+    padding: 0 0.6rem;
+  }
+  body.has-dock .floating-sheet-wrap {
+    bottom: calc(8.4rem + env(safe-area-inset-bottom));
+  }
+  .gap-row {
+    flex-direction: column;
+  }
+}
+
+/* ---------- 日历视图 ---------- */
+
+.cal {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.cal-head {
+  display: grid;
+  grid-template-columns: 3.2rem repeat(7, minmax(0, 1fr));
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.cal-day-label {
+  padding: 0.5rem 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.cal-day-label strong {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  color: var(--ink-2);
+}
+
+.cal-day-label.is-today strong {
+  color: var(--accent);
+}
+
+.cal-scroll {
+  max-height: calc(100dvh - 17rem);
+  min-height: 22rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.cal-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3.2rem repeat(var(--cols, 1), minmax(0, 1fr));
+  height: calc(var(--hour) * 24);
+}
+
+.cal.is-week .cal-grid {
+  grid-template-columns: 3.2rem repeat(7, minmax(0, 1fr));
+}
+
+.cal-hours {
+  position: relative;
+}
+
+.cal-hours span {
+  position: absolute;
+  right: 0.45rem;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-col {
+  position: relative;
+  border-left: 1px solid var(--line);
+  /* 每小时一条横线 */
+  background-image: linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+  background-size: 100% var(--hour);
+}
+
+.cal-block,
+.cal-gap {
+  position: absolute;
+  overflow: hidden;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.cal-block {
+  border: 0;
+  border-left: 3px solid var(--c);
+  background: color-mix(in srgb, var(--c) 26%, var(--surface));
+  color: var(--ink);
+}
+
+.cal-block:hover,
+.cal-block.is-selected {
+  background: color-mix(in srgb, var(--c) 40%, var(--surface));
+  z-index: 2;
+}
+
+.cal-block.is-selected {
+  outline: 2px solid var(--c);
+  outline-offset: 1px;
+}
+
+.cal-block.is-live {
+  border-bottom: 2px dashed var(--c);
+}
+
+.cal-block-name {
+  display: block;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-block-time {
+  display: block;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-gap {
+  left: 2px;
+  right: 2px;
+  border: 1px dashed color-mix(in srgb, var(--muted) 55%, transparent);
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 6px,
+    color-mix(in srgb, var(--muted) 10%, transparent) 6px 12px
+  );
+  color: var(--muted);
+}
+
+.cal-gap:hover,
+.cal-gap.is-selected {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cal-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--danger);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.cal-now::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+/* 窄屏周视图：列很窄，只显示 emoji，空档只留底纹；点开面板看完整信息 */
+@media (max-width: 759px) {
+  .cal.is-week .cal-block-label,
+  .cal.is-week .cal-block-time,
+  .cal.is-week .cal-gap span {
+    display: none;
+  }
+  .cal.is-week .cal-block {
+    padding: 0.1rem 0.15rem;
+    text-align: center;
+  }
+}
+
+.cal-gap span {
+  white-space: nowrap;
+}
+
+@media (max-width: 759px) {
+  .cal.is-week .cal-head,
+  .cal.is-week .cal-grid {
+    grid-template-columns: 2.4rem repeat(7, minmax(44px, 1fr));
+  }
+  .cal.is-week {
+    overflow-x: auto;
+  }
+  .cal-scroll {
+    max-height: calc(100dvh - 19rem);
+  }
+}

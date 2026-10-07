@@ -103,10 +103,17 @@ export function StatsPage() {
           ))}
         </div>
         {groupBy === 'type' && (
-          <label className="toggle is-compact">
-            <input type="checkbox" checked={showUntracked} onChange={(e) => setShowUntracked(e.target.checked)} />
-            <span>显示未记录时间{untracked > 0 ? `（${formatHm(untracked)}）` : ''}</span>
-          </label>
+          <>
+            <label className="toggle is-compact">
+              <input type="checkbox" checked={showUntracked} onChange={(e) => setShowUntracked(e.target.checked)} />
+              <span>显示未记录时间{untracked > 0 ? `（${formatHm(untracked)}）` : ''}</span>
+            </label>
+            {untracked > 0 && (
+              <a className="section-link" href={`#/history?mode=${mode}&anchor=${anchor}&gaps=1`}>
+                查看这些空白 ›
+              </a>
+            )}
+          </>
         )}
       </div>
 
@@ -130,7 +137,15 @@ export function StatsPage() {
             <ul className="legend">
               {rows.map((s) => (
                 <li key={s.key} style={{ '--c': s.color, '--w': `${base ? (s.ms / base) * 100 : 0}%` } as CSSProperties}>
-                  <span className="legend-name">{s.label}</span>
+                  <span className="legend-name">
+                    {s.key === UNTRACKED ? (
+                      <a href={`#/history?mode=${mode}&anchor=${anchor}&gaps=1`} title="到历史里查看这些空白">
+                        未记录 ›
+                      </a>
+                    ) : (
+                      s.label
+                    )}
+                  </span>
                   <span className="legend-ms">{formatHm(s.ms)}</span>
                   <span className="legend-pct">{base ? ((s.ms / base) * 100).toFixed(1) : '0.0'}%</span>
                   <span className="legend-bar" aria-hidden="true">

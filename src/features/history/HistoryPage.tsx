@@ -1,17 +1,29 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRecordsInRange, useSettings, useTagMap, useTypeMap } from '../../db/hooks';
 import type { DbRecord } from '../../db/db';
 import { fromDb } from '../../db/db';
 import type { CatalogItem } from '../../schema';
 import { useNow } from '../../ui/hooks';
 import { addDays, formatClock, formatHm } from '../../lib/time';
-import { dayLabel, rangeOf, shiftAnchor, type RangeMode } from '../../lib/range';
+import { dayLabel, daysIn, rangeOf, shiftAnchor, type RangeMode } from '../../lib/range';
 import { gaps, splitByDay, type DaySeg } from '../../lib/segments';
 import { RangeNav } from '../shared/RangeNav';
 import { CreateRecordForm, LiveRecordForm } from '../records/RecordForms';
 import { Drawer } from '../../ui/Drawer';
+import { FloatingSheet } from '../../ui/FloatingSheet';
+import { GAP_MIN_MS } from '../../lib/gaps';
+import { CalendarView, dayGaps } from './CalendarView';
+import { GapActions } from './GapActions';
 
-const GAP_MIN_MS = 5 * 60_000;
+type View = 'calendar' | 'list';
+const VIEW_KEY = 'timeencre.historyView';
+const readView = (): View => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'calendar';
+  } catch {
+    return 'calendar';
+  }
+};
 
 const hm = (ms: number) => {
   const d = new Date(ms);
@@ -31,6 +43,35 @@ export function HistoryPage() {
   const [anchor, setAnchor] = useState(now);
   const [query, setQuery] = useState('');
   const [showGaps, setShowGaps] = useState(false);
+  const [view, setViewState] = useState<View>(readView);
+  const setView = (v: View) => {
+    setViewState(v);
+    setOpenKey(null);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* 浏览器不允许存储时只在本次生效 */
+    }
+  };
+  // 日历里点中的色块 / 空档：'rec:<id>' 或 'gap:<开始时间>'
+  const [sheet, setSheet] = useState<{ key: string; rec?: DbRecord; gap?: { start: number; end: number } } | null>(null);
+
+  // 从统计页“查看这些空白”跳过来：#/history?mode=week&anchor=<ms>&gaps=1
+  useEffect(() => {
+    const apply = () => {
+      const q = new URLSearchParams(location.hash.split('?')[1] ?? '');
+      if (!q.has('mode')) return;
+      const m = q.get('mode') as RangeMode;
+      if (m === 'day' || m === 'week' || m === 'month') setMode(m);
+      const a = Number(q.get('anchor'));
+      if (a > 0) setAnchor(a);
+      if (q.get('gaps') === '1') setShowGaps(true);
+      history.replaceState(null, '', '#/history');
+    };
+    apply();
+    window.addEventListener('hashchange', apply);
+    return () => window.removeEventListener('hashchange', apply);
+  }, []);
   // 同一时间只展开一个：'new' = 顶部补录；'gap:<开始时间>' = 某个空白下的补录；'<日>:<记录id>' = 编辑某条
   const [openKey, setOpenKey] = useState<string | null>(null);
   const toggle = (k: string) => setOpenKey((cur) => (cur === k ? null : k));
@@ -75,6 +116,12 @@ export function HistoryPage() {
   // 打开空白显示时，没有任何记录的日子也要列出来
   const allDays = showGaps && !q ? daysDesc(range.from, visibleTo) : days;
 
+  // 日 / 周可以用日历视图；月只有列表
+  const calendarMode = mode !== 'month';
+  const showCalendar = calendarMode && view === 'calendar';
+  const calDays = daysIn(range.from, range.to);
+  const calGaps = q ? new Map<number, { start: number; end: number }[]>() : dayGaps(byDay, calDays, now, (sp, f, t) => gaps(sp, f, t, GAP_MIN_MS));
+
   return (
     <div className="page history">
       <header className="page-head">
@@ -101,10 +148,26 @@ export function HistoryPage() {
           placeholder="搜索活动、备注或标签"
           aria-label="搜索活动、备注或标签"
         />
-        <label className="toggle is-compact">
-          <input type="checkbox" checked={showGaps} onChange={(e) => setShowGaps(e.target.checked)} />
-          <span>显示未记录的空白</span>
-        </label>
+        {calendarMode && (
+          <div className="tabs" role="tablist" aria-label="显示方式">
+            {(
+              [
+                ['calendar', '日历'],
+                ['list', '列表'],
+              ] as const
+            ).map(([v, label]) => (
+              <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'is-on' : undefined} onClick={() => setView(v)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        {!showCalendar && (
+          <label className="toggle is-compact">
+            <input type="checkbox" checked={showGaps} onChange={(e) => setShowGaps(e.target.checked)} />
+            <span>显示未记录的空白</span>
+          </label>
+        )}
         <button type="button" className={`btn${openKey === 'new' ? ' is-active' : ''}`} aria-expanded={openKey === 'new'} onClick={() => toggle('new')}>
           ＋ 补录
         </button>
@@ -116,55 +179,76 @@ export function HistoryPage() {
         </div>
       </Drawer>
 
+      {showCalendar ? (
+        <>
+          <CalendarView
+            days={calDays}
+            segsByDay={byDay}
+            gapsByDay={calGaps}
+            typeMap={typeMap}
+            now={now}
+            selectedKey={sheet?.key ?? null}
+            onOpenRecord={(rec) => setSheet((cur) => (cur?.key === `rec:${rec.id}` ? null : { key: `rec:${rec.id}`, rec }))}
+            onOpenGap={(gap) => setSheet((cur) => (cur?.key === `gap:${gap.start}` ? null : { key: `gap:${gap.start}`, gap }))}
+          />
+          {sheet?.rec && <RecordSheet rec={sheet.rec} records={records} typeMap={typeMap} onClose={() => setSheet(null)} />}
+          {sheet?.gap && <GapSheet gap={sheet.gap} records={records} typeMap={typeMap} onClose={() => setSheet(null)} />}
+        </>
+      ) : (
+        <>
       {allDays.length === 0 && <p className="empty">{q ? `这段时间没有匹配“${query.trim()}”的记录。` : '这段时间没有记录。'}</p>}
 
-      {allDays.map((day) => {
-        const segs = byDay.get(day) ?? [];
-        const dayTotal = segs.reduce((a, s) => a + s.ms, 0);
-        return (
-          <section key={day} className="day" aria-label={dayLabel(day, now)}>
-            <header className="day-head">
-              <h2>{dayLabel(day, now)}</h2>
-              <span className="day-total">{dayTotal > 0 ? formatHm(dayTotal) : ''}</span>
-            </header>
-            <ul className="entries">
-              {itemsFor(day, segs).map((it) =>
-                it.kind === 'seg' ? (
-                  <Entry
-                    key={it.seg.rec.id}
-                    seg={it.seg}
-                    type={typeMap.get(it.seg.rec.typeId)}
-                    tags={it.seg.rec.tagIds.map((id) => tagMap.get(id)).filter((t): t is CatalogItem => !!t && !t.deleted)}
-                    open={openKey === `${day}:${it.seg.rec.id}`}
-                    onToggle={() => toggle(`${day}:${it.seg.rec.id}`)}
-                    onClose={() => setOpenKey(null)}
-                  />
-                ) : (
-                  <li key={`gap-${it.start}`}>
-                    <button
-                      type="button"
-                      className={`gap${openKey === `gap:${it.start}` ? ' is-open' : ''}`}
-                      aria-expanded={openKey === `gap:${it.start}`}
-                      onClick={() => toggle(`gap:${it.start}`)}
-                      title="点击补录这段时间"
-                    >
-                      <span className="gap-time">
-                        {hm(it.start)} – {hm(it.end)}
-                      </span>
-                      <span className="gap-label">未记录</span>
-                      <span className="gap-ms">{formatHm(it.end - it.start)}</span>
-                    </button>
-                    <Drawer open={openKey === `gap:${it.start}`} onClose={() => setOpenKey(null)}>
-                      <CreateRecordForm initial={{ start: it.start, end: it.end }} onDone={() => setOpenKey(null)} />
-                    </Drawer>
-                  </li>
-                ),
-              )}
-            </ul>
-          </section>
-        );
-      })}
-
+          {allDays.map((day) => {
+            const segs = byDay.get(day) ?? [];
+            const dayTotal = segs.reduce((a, s) => a + s.ms, 0);
+            return (
+              <section key={day} className="day" aria-label={dayLabel(day, now)}>
+                <header className="day-head">
+                  <h2>{dayLabel(day, now)}</h2>
+                  <span className="day-total">{dayTotal > 0 ? formatHm(dayTotal) : ''}</span>
+                </header>
+                <ul className="entries">
+                  {itemsFor(day, segs).map((it) =>
+                    it.kind === 'seg' ? (
+                      <Entry
+                        key={it.seg.rec.id}
+                        seg={it.seg}
+                        type={typeMap.get(it.seg.rec.typeId)}
+                        tags={it.seg.rec.tagIds.map((id) => tagMap.get(id)).filter((t): t is CatalogItem => !!t && !t.deleted)}
+                        open={openKey === `${day}:${it.seg.rec.id}`}
+                        onToggle={() => toggle(`${day}:${it.seg.rec.id}`)}
+                        onClose={() => setOpenKey(null)}
+                      />
+                    ) : (
+                      <li key={`gap-${it.start}`}>
+                        <div className="gap-row">
+                          <button
+                            type="button"
+                            className={`gap${openKey === `gap:${it.start}` ? ' is-open' : ''}`}
+                            aria-expanded={openKey === `gap:${it.start}`}
+                            onClick={() => toggle(`gap:${it.start}`)}
+                            title="点击记录为某个活动"
+                          >
+                            <span className="gap-time">
+                              {hm(it.start)} – {hm(it.end)}
+                            </span>
+                            <span className="gap-label">未记录</span>
+                            <span className="gap-ms">{formatHm(it.end - it.start)}</span>
+                          </button>
+                          <GapActions gap={it} records={records} typeMap={typeMap} />
+                        </div>
+                        <Drawer open={openKey === `gap:${it.start}`} onClose={() => setOpenKey(null)}>
+                          <CreateRecordForm initial={{ start: it.start, end: it.end }} onDone={() => setOpenKey(null)} />
+                        </Drawer>
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </section>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }
@@ -235,5 +319,72 @@ function Entry({
         </div>
       </Drawer>
     </li>
+  );
+}
+
+const hmRange = (g: { start: number; end: number }) => `${hm(g.start)} – ${hm(g.end)}`;
+
+/** 日历里点色块：在底部浮出编辑面板（与进行中栏同一种） */
+function RecordSheet({
+  rec,
+  records,
+  typeMap,
+  onClose,
+}: {
+  rec: DbRecord;
+  records: DbRecord[];
+  typeMap: Map<string, CatalogItem>;
+  onClose: () => void;
+}) {
+  // 用最新的数据（编辑后列表会刷新）
+  const live = records.find((r) => r.id === rec.id);
+  if (!live || live.deleted) return null;
+  const t = typeMap.get(live.typeId);
+  return (
+    <FloatingSheet
+      color={t?.color}
+      onClose={onClose}
+      head={
+        <>
+          <span className="run-emoji" aria-hidden="true">{t?.emoji ?? '❔'}</span>
+          <strong>{t?.name ?? '未知活动'}</strong>
+        </>
+      }
+    >
+      <LiveRecordForm key={live.id} rec={fromDb(live)} onClose={onClose} />
+    </FloatingSheet>
+  );
+}
+
+/** 日历里点空档：快捷填充，或记录为某个活动 */
+function GapSheet({
+  gap,
+  records,
+  typeMap,
+  onClose,
+}: {
+  gap: { start: number; end: number };
+  records: DbRecord[];
+  typeMap: Map<string, CatalogItem>;
+  onClose: () => void;
+}) {
+  return (
+    <FloatingSheet
+      onClose={onClose}
+      head={
+        <>
+          <strong>未记录</strong>
+          <span className="gap-sheet-range">
+            {hmRange(gap)} · {formatHm(gap.end - gap.start)}
+          </span>
+        </>
+      }
+    >
+      <div className="gap-sheet-actions">
+        <GapActions gap={gap} records={records} typeMap={typeMap} onDone={onClose} />
+      </div>
+      <p className="field-label gap-sheet-or">或记录为：</p>
+      <CreateRecordForm initial={gap} onDone={onClose} />
+    </FloatingSheet>
   );
 }
