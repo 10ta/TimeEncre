@@ -1,5 +1,8 @@
 // 法语词典：键为中文原文，值为法语。由 tests/i18n.test.ts 检查完整性（缺键、多余键、占位符数量）。
 export const fr: Record<string, string> = {
+  "撤销": "Annuler",
+  "已调整「{0}」{1}–{2}": "« {0} » ajusté : {1}–{2}",
+  "拖动色块的上下边缘调整时间，拖动中间整段平移；在空档里拖出一段可以只补录这一段。触屏上：点一下选中后拖动，再点一下打开编辑。": "Faites glisser le bord haut ou bas d’un bloc pour changer l’heure, son milieu pour le déplacer ; tracez une sélection dans un trou pour n’enregistrer que ce morceau. Sur écran tactile : touchez une fois pour sélectionner et faire glisser, une seconde fois pour modifier.",
   "记录为哪个活动": "Enregistrer comme",
   "点一个活动就记录好了；之后可以在这里继续补充备注和标签，改动即时保存。": "Choisissez une activité et c’est enregistré ; vous pouvez ensuite ajouter une note et des tags ici, enregistrés aussitôt.",
   "活动|字段": "Activité",

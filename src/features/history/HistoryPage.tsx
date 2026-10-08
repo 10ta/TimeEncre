@@ -197,6 +197,9 @@ export function HistoryPage() {
             onOpenRecord={(rec) => setSheet((cur) => (cur?.key === `rec:${rec.id}` ? null : { key: `rec:${rec.id}`, recId: rec.id }))}
             onOpenGap={(gap) => setSheet((cur) => (cur?.key === `gap:${gap.start}` ? null : { key: `gap:${gap.start}`, gap }))}
           />
+          <p className="cal-hint">
+            {tr("拖动色块的上下边缘调整时间，拖动中间整段平移；在空档里拖出一段可以只补录这一段。触屏上：点一下选中后拖动，再点一下打开编辑。")}
+          </p>
           {sheet?.recId && (
             <RecordSheet key={sheet.recId} recId={sheet.recId} fresh={sheet.fresh} records={records} typeMap={typeMap} onClose={() => setSheet(null)} />
           )}

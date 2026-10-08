@@ -10,6 +10,7 @@ import { PomodoroPage } from './features/pomodoro/PomodoroPage';
 import { PomodoroRunner } from './pomodoro/PomodoroRunner';
 import { UpdatePrompt } from './ui/UpdatePrompt';
 import { DiscardToast } from './ui/DiscardToast';
+import { UndoToast } from './ui/UndoToast';
 import { AutoSync, SyncBadge } from './sync/SyncBadge';
 import { ErrorBoundary } from './ui/ErrorBoundary';
 import { tr } from './i18n';
@@ -103,6 +104,9 @@ export function App() {
         </ErrorBoundary>
         <ErrorBoundary area={tr("提示")}>
           <DiscardToast />
+        </ErrorBoundary>
+        <ErrorBoundary area={tr("提示")}>
+          <UndoToast />
         </ErrorBoundary>
       </div>
       <main className="main">
