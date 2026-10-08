@@ -8,6 +8,7 @@ import type { CatalogItem, TimeRecord } from '../schema';
 import { newId } from '../lib/id';
 import { toIso } from '../lib/time';
 import { PALETTE } from '../db/defaults';
+import { tr } from '../i18n';
 
 /** ATL2 内置图标编号 → emoji（来自真实备份样本） */
 const ICON_EMOJI: Record<string, string> = {
@@ -51,7 +52,7 @@ export interface Atl2Converted {
 
 export function convertAtl2(raw: unknown, nowMs = Date.now()): Atl2Converted {
   if (!isObj(raw) || !Array.isArray(raw.types) || !Array.isArray(raw.activities)) {
-    throw new Error('这不是 A Time Logger 2 的备份文件（缺少 types 或 activities）');
+    throw new Error(tr("这不是 A Time Logger 2 的备份文件（缺少 types 或 activities）"));
   }
   const stamp = toIso(nowMs);
   const skipped = { deleted: 0, groups: 0, emptyRecords: 0, goals: Array.isArray(raw.goals) ? raw.goals.length : 0 };
@@ -61,7 +62,7 @@ export function convertAtl2(raw: unknown, nowMs = Date.now()): Atl2Converted {
     if (!isObj(t) || typeof t.guid !== 'string') continue;
     if (t.deleted) { skipped.deleted++; continue; }
     if (t.group) { skipped.groups++; continue; } // 不做父子层级，分组本身不导入
-    const name = typeof t.name === 'string' && t.name.trim() ? t.name.trim() : '未命名';
+    const name = typeof t.name === 'string' && t.name.trim() ? t.name.trim() : tr("未命名");
     types.push({
       id: t.guid,
       name,

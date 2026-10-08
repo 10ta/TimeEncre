@@ -5,9 +5,10 @@ import type { DbRecord } from '../../db/db';
 import type { CatalogItem } from '../../schema';
 import type { DaySeg } from '../../lib/segments';
 import { addDays, formatHm, startOfDay, type Span } from '../../lib/time';
+import { dateText, monthShort, weekdayNarrow } from '../../i18n/dates';
+import { tr } from '../../i18n';
 
 const HOUR = 3_600_000;
-const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
 const hm = (ms: number) => {
   const d = new Date(ms);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -89,12 +90,12 @@ export function CalendarView({
     <div className={`cal${days.length === 1 ? ' is-day' : ' is-week'}`} style={{ '--hour': `${hourPx}px` } as CSSProperties}>
       {days.length > 1 && (
         <div className="cal-head">
-          <span className="cal-gutter" />
+          <span className="cal-gutter cal-month">{monthShort(days[0], days[days.length - 1])}</span>
           {days.map((d) => {
             const date = new Date(d);
             return (
               <span key={d} className={`cal-day-label${d === today ? ' is-today' : ''}`}>
-                {WEEKDAY[date.getDay()]} <strong>{date.getDate()}</strong>
+                {weekdayNarrow(d)} <strong>{date.getDate()}</strong>
               </span>
             );
           })}
@@ -116,7 +117,7 @@ export function CalendarView({
             );
             const y = (t: number) => ((t - day) / HOUR) * hourPx;
             return (
-              <div key={day} className="cal-col" aria-label={new Date(day).toLocaleDateString()}>
+              <div key={day} className="cal-col" aria-label={dateText(day)}>
                 {(gapsByDay.get(day) ?? []).map((g) => {
                   const h = y(g.end) - y(g.start);
                   const key = `gap:${g.start}`;
@@ -128,9 +129,9 @@ export function CalendarView({
                       aria-expanded={selectedKey === key}
                       style={{ top: y(g.start), height: Math.max(h, 3) }}
                       onClick={() => onOpenGap(g)}
-                      title={`未记录 ${hm(g.start)}–${hm(g.end)}（${formatHm(g.end - g.start)}）`}
+                      title={tr("未记录 {0}–{1}（{2}）", hm(g.start), hm(g.end), formatHm(g.end - g.start))}
                     >
-                      {h >= 16 && <span>未记录 · {formatHm(g.end - g.start)}</span>}
+                      {h >= 16 && <span>{tr("未记录 ·")} {formatHm(g.end - g.start)}</span>}
                     </button>
                   );
                 })}
@@ -155,17 +156,17 @@ export function CalendarView({
                         } as CSSProperties
                       }
                       onClick={() => onOpenRecord(b.rec)}
-                      title={`${t?.name ?? '未知活动'} ${hm(b.start)}–${live ? '现在' : hm(b.end)}（${formatHm(b.end - b.start)}）${b.rec.comment ? `\n${b.rec.comment}` : ''}`}
+                      title={tr("{0} {1}–{2}（{3}）{4}", t?.name ?? tr("未知活动"), hm(b.start), live ? tr("现在") : hm(b.end), formatHm(b.end - b.start), b.rec.comment ? `\n${b.rec.comment}` : '')}
                     >
                       {h >= 18 && (
                         <span className="cal-block-name">
                           <span className="cal-block-emoji">{t?.emoji}</span>
-                          <span className="cal-block-label"> {t?.name ?? '未知活动'}</span>
+                          <span className="cal-block-label"> {t?.name ?? tr("未知活动")}</span>
                         </span>
                       )}
                       {h >= 36 && (
                         <span className="cal-block-time">
-                          {hm(b.start)}–{live ? '现在' : hm(b.end)}
+                          {hm(b.start)}–{live ? tr("现在") : hm(b.end)}
                         </span>
                       )}
                     </button>

@@ -5,9 +5,10 @@
 //  - 时长不存，由 intervals 计算。
 //  - deleted 是墓碑标记：删除也是一次"更新"，多设备合并时才不会被旧数据复活。
 import { z } from 'zod';
+import { tr } from '../i18n';
 
-const IsoTime = z.string().refine((s) => !Number.isNaN(Date.parse(s)), '无效的 ISO 时间');
-const HexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, '颜色需为 #rrggbb');
+const IsoTime = z.string().refine((s) => !Number.isNaN(Date.parse(s)), tr("无效的 ISO 时间"));
+const HexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, tr("颜色需为 #rrggbb"));
 
 const base = {
   id: z.string().min(1),

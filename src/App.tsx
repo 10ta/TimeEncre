@@ -12,15 +12,16 @@ import { UpdatePrompt } from './ui/UpdatePrompt';
 import { DiscardToast } from './ui/DiscardToast';
 import { AutoSync, SyncBadge } from './sync/SyncBadge';
 import { ErrorBoundary } from './ui/ErrorBoundary';
+import { tr } from './i18n';
 
 const NAV = [
-  { key: 'timer', label: '计时', icon: '⏱️' },
+  { key: 'timer', label: tr("计时"), icon: '⏱️' },
   { key: 'pomodoro', label: 'Pomo', icon: '🍅' },
-  { key: 'history', label: '历史', icon: '🗂️' },
-  { key: 'stats', label: '统计', icon: '📊' },
-  { key: 'goals', label: '目标', icon: '🎯' },
-  { key: 'catalog', label: '类型', icon: '🏷️', wideOnly: true },
-  { key: 'settings', label: '设置', icon: '⚙️' },
+  { key: 'history', label: tr("历史"), icon: '🗂️' },
+  { key: 'stats', label: tr("统计"), icon: '📊' },
+  { key: 'goals', label: tr("目标"), icon: '🎯' },
+  { key: 'catalog', label: tr("类型"), icon: '🏷️', wideOnly: true },
+  { key: 'settings', label: tr("设置"), icon: '⚙️' },
 ] as const;
 
 type RouteKey = (typeof NAV)[number]['key'];
@@ -66,7 +67,7 @@ export function App() {
 
   return (
     <div className="app">
-      <nav className="nav" aria-label="主导航">
+      <nav className="nav" aria-label={tr("主导航")}>
         <a className="brand" href="#/timer">
           Time<span>Encre</span>
         </a>
@@ -81,31 +82,31 @@ export function App() {
           ))}
         </ul>
         <div className="nav-foot">
-          <ErrorBoundary area="同步状态">
+          <ErrorBoundary area={tr("同步状态")}>
             <SyncBadge />
           </ErrorBoundary>
         </div>
       </nav>
-      <ErrorBoundary area="自动同步">
+      <ErrorBoundary area={tr("自动同步")}>
         <AutoSync />
       </ErrorBoundary>
       <ErrorBoundary area="Pomo">
         <PomodoroRunner baseTitle={baseTitle} />
       </ErrorBoundary>
-      <ErrorBoundary area="进行中">
+      <ErrorBoundary area={tr("进行中")}>
         <RunningDock />
       </ErrorBoundary>
       {/* 所有提示放在同一个容器里依次排列，互不遮挡 */}
       <div className="toasts">
-        <ErrorBoundary area="更新提示">
+        <ErrorBoundary area={tr("更新提示")}>
           <UpdatePrompt />
         </ErrorBoundary>
-        <ErrorBoundary area="提示">
+        <ErrorBoundary area={tr("提示")}>
           <DiscardToast />
         </ErrorBoundary>
       </div>
       <main className="main">
-        <ErrorBoundary key={route} area="页面">
+        <ErrorBoundary key={route} area={tr("页面")}>
           <Page route={route} />
         </ErrorBoundary>
       </main>

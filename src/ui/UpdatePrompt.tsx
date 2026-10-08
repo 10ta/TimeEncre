@@ -1,4 +1,5 @@
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { tr } from '../i18n';
 
 /** Service Worker 发现新版本时提示刷新。非 HTTPS（局域网 IP）下浏览器不支持 SW，这里什么也不做 */
 export function UpdatePrompt() {
@@ -17,19 +18,19 @@ export function UpdatePrompt() {
     <div className="toast" role="status">
       {needRefresh ? (
         <>
-          <span>TimeEncre 有新版本。</span>
+          <span>{tr("TimeEncre 有新版本。")}</span>
           <button type="button" className="btn is-primary is-small" onClick={() => void updateServiceWorker(true)}>
-            刷新
+            {tr("刷新")}
           </button>
           <button type="button" className="btn is-quiet is-small" onClick={() => setNeedRefresh(false)}>
-            稍后
+            {tr("稍后")}
           </button>
         </>
       ) : (
         <>
-          <span>已可离线使用。</span>
+          <span>{tr("已可离线使用。")}</span>
           <button type="button" className="btn is-quiet is-small" onClick={() => setOfflineReady(false)}>
-            知道了
+            {tr("知道了")}
           </button>
         </>
       )}

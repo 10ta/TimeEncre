@@ -11,9 +11,13 @@ import { chime, notify } from '../lib/notify';
 import { fromIso } from '../lib/time';
 import * as M from './machine';
 import type { PomoState } from './machine';
+import { tr } from '../i18n';
 
 const KEY = 'pomodoroState';
-export const POMODORO_COMMENT = '🍅 番茄钟';
+/** Pomo 自动生成记录的备注（不带语言）；旧版本用的是中文标记，也照样识别 */
+export const POMODORO_COMMENT = '🍅 Pomo';
+const POMODORO_COMMENTS = new Set([POMODORO_COMMENT, '\u{1F345} \u756A\u8304\u949F']);
+export const isPomodoroComment = (c: string) => POMODORO_COMMENTS.has(c);
 
 let chain: Promise<unknown> = Promise.resolve();
 
@@ -50,11 +54,11 @@ async function settleInner(alert: boolean) {
   await putPomo(next);
   if (finished.length && alert) {
     const last = finished[finished.length - 1];
-    const title = last.phase === 'work' ? '🍅 专注结束' : '☕ 休息结束';
+    const title = last.phase === 'work' ? tr("🍅 专注结束") : tr("☕ 休息结束");
     const body =
       last.phase === 'work'
-        ? `今天已完成 ${next.today.count} 个番茄。${next.status === 'running' ? '休息已自动开始。' : '该休息一下了。'}`
-        : next.status === 'running' ? '新的专注已自动开始。' : '准备开始下一个番茄。';
+        ? tr("今天已完成 {0} 个番茄。{1}", next.today.count, next.status === 'running' ? tr("休息已自动开始。") : tr("该休息一下了。"))
+        : next.status === 'running' ? tr("新的专注已自动开始。") : tr("准备开始下一个番茄。");
     if (c.sound) chime();
     await notify(title, body);
   }
@@ -130,7 +134,7 @@ export const useOrphanRecords = (pomo: PomoState | undefined) =>
   useLiveQuery(
     async () =>
       (await db.records.where('active').equals(1).toArray()).filter(
-        (r) => !r.deleted && r.comment === POMODORO_COMMENT && r.id !== pomo?.recordId,
+        (r) => !r.deleted && isPomodoroComment(r.comment) && r.id !== pomo?.recordId,
       ),
     [pomo?.recordId],
   );
@@ -139,7 +143,7 @@ export const useOrphanRecords = (pomo: PomoState | undefined) =>
 export const adoptRecord = (id: string) =>
   exclusive(async () => {
     const s = await getPomo();
-    if (s.status !== 'idle') throw new Error('请先重置当前的 Pomo');
+    if (s.status !== 'idle') throw new Error(tr("请先重置当前的 Pomo"));
     const row: DbRecord | undefined = await db.records.get(id);
     if (!row || row.deleted || row.state === 'stopped') return;
     let closed = 0;

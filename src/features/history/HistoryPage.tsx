@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { useRecordsInRange, useSettings, useTagMap, useTypeMap } from '../../db/hooks';
+import { useFirstRecordMs, useRecordsInRange, useSettings, useTagMap, useTypeMap } from '../../db/hooks';
 import type { DbRecord } from '../../db/db';
 import { fromDb } from '../../db/db';
 import type { CatalogItem } from '../../schema';
 import { useNow } from '../../ui/hooks';
-import { addDays, formatClock, formatHm } from '../../lib/time';
+import { addDays, formatClock, formatHm, startOfDay } from '../../lib/time';
 import { dayLabel, daysIn, rangeOf, shiftAnchor, type RangeMode } from '../../lib/range';
 import { gaps, splitByDay, type DaySeg } from '../../lib/segments';
 import { RangeNav } from '../shared/RangeNav';
@@ -14,6 +14,7 @@ import { FloatingSheet } from '../../ui/FloatingSheet';
 import { GAP_MIN_MS } from '../../lib/gaps';
 import { CalendarView, dayGaps } from './CalendarView';
 import { GapActions } from './GapActions';
+import { tr } from '../../i18n';
 
 type View = 'calendar' | 'list';
 const VIEW_KEY = 'timeencre.historyView';
@@ -78,6 +79,9 @@ export function HistoryPage() {
 
   const range = rangeOf(mode, anchor, settings?.weekStart ?? 1);
   const records = useRecordsInRange(range.from, range.to);
+  // 第一条记录之前的时间不算“未记录”（还没开始用）
+  const firstMs = useFirstRecordMs();
+  const gapFloor = firstMs ?? Infinity;
 
   const q = query.trim().toLowerCase();
   const filtered = useMemo(() => {
@@ -95,7 +99,7 @@ export function HistoryPage() {
     });
   }, [records, typeMap, tagMap, q]);
 
-  if (!records || !typeMap || !tagMap || !settings) return null;
+  if (!records || !typeMap || !tagMap || !settings || firstMs === undefined) return null;
 
   // 不显示未来的日子
   const visibleTo = Math.min(range.to, addDays(new Date(now).setHours(0, 0, 0, 0), 1));
@@ -108,24 +112,25 @@ export function HistoryPage() {
     const items: Item[] = segs.map((seg) => ({ kind: 'seg', seg }));
     if (showGaps && !q) {
       const dayEnd = Math.min(addDays(day, 1), now);
-      for (const g of gaps(segs.flatMap((s) => s.spans), day, dayEnd, GAP_MIN_MS)) items.push({ kind: 'gap', ...g });
+      const from = Math.max(day, gapFloor);
+      if (from < dayEnd) for (const g of gaps(segs.flatMap((s) => s.spans), from, dayEnd, GAP_MIN_MS)) items.push({ kind: 'gap', ...g });
     }
     return items.sort((a, b) => (b.kind === 'seg' ? b.seg.start : b.start) - (a.kind === 'seg' ? a.seg.start : a.start));
   };
 
   // 打开空白显示时，没有任何记录的日子也要列出来
-  const allDays = showGaps && !q ? daysDesc(range.from, visibleTo) : days;
+  const allDays = showGaps && !q ? daysDesc(Math.max(range.from, startOfDay(Math.min(gapFloor, now))), visibleTo) : days;
 
   // 日 / 周可以用日历视图；月只有列表
   const calendarMode = mode !== 'month';
   const showCalendar = calendarMode && view === 'calendar';
   const calDays = daysIn(range.from, range.to);
-  const calGaps = q ? new Map<number, { start: number; end: number }[]>() : dayGaps(byDay, calDays, now, (sp, f, t) => gaps(sp, f, t, GAP_MIN_MS));
+  const calGaps = q ? new Map<number, { start: number; end: number }[]>() : dayGaps(byDay, calDays, now, (sp, f, t) => (Math.max(f, gapFloor) < t ? gaps(sp, Math.max(f, gapFloor), t, GAP_MIN_MS) : []));
 
   return (
     <div className="page history">
       <header className="page-head">
-        <h1>历史</h1>
+        <h1>{tr("历史")}</h1>
       </header>
 
       <RangeNav
@@ -136,7 +141,7 @@ export function HistoryPage() {
         }}
         onShift={(dir) => setAnchor((a) => shiftAnchor(mode, a, dir))}
         onToday={() => setAnchor(Date.now())}
-        summary={total > 0 ? `已记录 ${formatHm(total)}` : '没有记录'}
+        summary={total > 0 ? tr("已记录 {0}", formatHm(total)) : tr("没有记录")}
       />
 
       <div className="history-tools">
@@ -145,15 +150,15 @@ export function HistoryPage() {
           className="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="搜索活动、备注或标签"
-          aria-label="搜索活动、备注或标签"
+          placeholder={tr("搜索活动、备注或标签")}
+          aria-label={tr("搜索活动、备注或标签")}
         />
         {calendarMode && (
-          <div className="tabs" role="tablist" aria-label="显示方式">
+          <div className="tabs" role="tablist" aria-label={tr("显示方式")}>
             {(
               [
-                ['calendar', '日历'],
-                ['list', '列表'],
+                ['calendar', tr("日历")],
+                ['list', tr("列表")],
               ] as const
             ).map(([v, label]) => (
               <button key={v} type="button" role="tab" aria-selected={view === v} className={view === v ? 'is-on' : undefined} onClick={() => setView(v)}>
@@ -165,11 +170,11 @@ export function HistoryPage() {
         {!showCalendar && (
           <label className="toggle is-compact">
             <input type="checkbox" checked={showGaps} onChange={(e) => setShowGaps(e.target.checked)} />
-            <span>显示未记录的空白</span>
+            <span>{tr("显示未记录的空白")}</span>
           </label>
         )}
         <button type="button" className={`btn${openKey === 'new' ? ' is-active' : ''}`} aria-expanded={openKey === 'new'} onClick={() => toggle('new')}>
-          ＋ 补录
+          {tr("＋ 补录")}
         </button>
       </div>
 
@@ -196,7 +201,7 @@ export function HistoryPage() {
         </>
       ) : (
         <>
-      {allDays.length === 0 && <p className="empty">{q ? `这段时间没有匹配“${query.trim()}”的记录。` : '这段时间没有记录。'}</p>}
+      {allDays.length === 0 && <p className="empty">{q ? tr("这段时间没有匹配“{0}”的记录。", query.trim()) : tr("这段时间没有记录。")}</p>}
 
           {allDays.map((day) => {
             const segs = byDay.get(day) ?? [];
@@ -227,12 +232,12 @@ export function HistoryPage() {
                             className={`gap${openKey === `gap:${it.start}` ? ' is-open' : ''}`}
                             aria-expanded={openKey === `gap:${it.start}`}
                             onClick={() => toggle(`gap:${it.start}`)}
-                            title="点击记录为某个活动"
+                            title={tr("点击记录为某个活动")}
                           >
                             <span className="gap-time">
                               {hm(it.start)} – {hm(it.end)}
                             </span>
-                            <span className="gap-label">未记录</span>
+                            <span className="gap-label">{tr("未记录")}</span>
                             <span className="gap-ms">{formatHm(it.end - it.start)}</span>
                           </button>
                           <GapActions gap={it} records={records} typeMap={typeMap} />
@@ -288,16 +293,16 @@ function Entry({
         <span className="entry-emoji" aria-hidden="true">{type?.emoji ?? '❔'}</span>
         <span className="entry-body">
           <span className="entry-title">
-            {type?.name ?? '未知活动'}
-            {type?.deleted && <span className="badge">已删除的活动</span>}
-            {r.state === 'running' && <span className="badge is-live">进行中</span>}
-            {r.state === 'paused' && <span className="badge">已暂停</span>}
+            {type?.name ?? tr("未知活动")}
+            {type?.deleted && <span className="badge">{tr("已删除的活动")}</span>}
+            {r.state === 'running' && <span className="badge is-live">{tr("进行中")}</span>}
+            {r.state === 'paused' && <span className="badge">{tr("已暂停")}</span>}
           </span>
           <span className="entry-time">
-            {hm(seg.start)} – {live ? '现在' : hm(seg.end)}
-            {seg.spans.length > 1 && <span className="entry-parts">（{seg.spans.length} 段）</span>}
-            {seg.fromPrevDay && <span className="cont">接前日</span>}
-            {seg.toNextDay && <span className="cont">延续到次日</span>}
+            {hm(seg.start)} – {live ? tr("现在") : hm(seg.end)}
+            {seg.spans.length > 1 && <span className="entry-parts">{tr("（{0} 段）", seg.spans.length)}</span>}
+            {seg.fromPrevDay && <span className="cont">{tr("接前日")}</span>}
+            {seg.toNextDay && <span className="cont">{tr("延续到次日")}</span>}
           </span>
           {(tags.length > 0 || r.comment) && (
             <span className="entry-meta">
@@ -347,7 +352,7 @@ function RecordSheet({
       head={
         <>
           <span className="run-emoji" aria-hidden="true">{t?.emoji ?? '❔'}</span>
-          <strong>{t?.name ?? '未知活动'}</strong>
+          <strong>{t?.name ?? tr("未知活动")}</strong>
         </>
       }
     >
@@ -373,7 +378,7 @@ function GapSheet({
       onClose={onClose}
       head={
         <>
-          <strong>未记录</strong>
+          <strong>{tr("未记录")}</strong>
           <span className="gap-sheet-range">
             {hmRange(gap)} · {formatHm(gap.end - gap.start)}
           </span>
@@ -383,7 +388,7 @@ function GapSheet({
       <div className="gap-sheet-actions">
         <GapActions gap={gap} records={records} typeMap={typeMap} onDone={onClose} />
       </div>
-      <p className="field-label gap-sheet-or">或记录为：</p>
+      <p className="field-label gap-sheet-or">{tr("或记录为：")}</p>
       <CreateRecordForm initial={gap} onDone={onClose} />
     </FloatingSheet>
   );

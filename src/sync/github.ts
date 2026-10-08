@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 // GitHub REST API 的最小封装：只用 Git Data API（ref / commit / tree / blob）和一次 Contents API（空仓库初始化）。
 // 浏览器直连 api.github.com，令牌只存在本机，不经过任何服务器。
 
@@ -27,13 +28,13 @@ export interface TreeEntry {
 }
 
 function explain(status: number, apiMessage: string): string {
-  if (status === 401) return '令牌无效或已过期，请重新生成并填写。';
+  if (status === 401) return tr("令牌无效或已过期，请重新生成并填写。");
   if (status === 403)
     return /rate limit/i.test(apiMessage)
-      ? 'GitHub API 调用次数超限，请稍后再试。'
-      : '令牌没有这个仓库的写入权限（需要 Contents: Read and write）。';
-  if (status === 404) return '找不到这个仓库，或者令牌没有授权访问它。';
-  return `GitHub 返回 ${status}${apiMessage ? `：${apiMessage}` : ''}`;
+      ? tr("GitHub API 调用次数超限，请稍后再试。")
+      : tr("令牌没有这个仓库的写入权限（需要 Contents: Read and write）。");
+  if (status === 404) return tr("找不到这个仓库，或者令牌没有授权访问它。");
+  return tr("GitHub 返回 {0}{1}", status, apiMessage ? tr("：{0}", apiMessage) : '');
 }
 
 export function utf8ToBase64(text: string): string {
@@ -82,7 +83,7 @@ export class GitHub {
         body: body ? JSON.stringify(body) : undefined,
       });
     } catch {
-      throw new GitHubError(0, '连接不上 GitHub（api.github.com），请检查网络。');
+      throw new GitHubError(0, tr("连接不上 GitHub（api.github.com），请检查网络。"));
     }
     if (!res.ok) {
       let msg = '';

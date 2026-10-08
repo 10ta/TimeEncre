@@ -1,7 +1,9 @@
 // 手写 SVG 图表：环形图、每日堆叠柱、单日时间轴。颜色全部来自类型颜色。
 import type { ReactNode } from 'react';
 import { addDays, formatHm } from '../../lib/time';
+import { weekdayNarrow } from '../../i18n/dates';
 import type { Span } from '../../lib/time';
+import { tr } from '../../i18n';
 
 export interface Slice {
   key: string;
@@ -11,7 +13,6 @@ export interface Slice {
 }
 
 const H = 3600_000;
-const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
 
 /** 角度 a（弧度，0 在正上方，顺时针）对应的坐标 */
 const polar = (cx: number, cy: number, r: number, a: number) => [cx + r * Math.sin(a), cy - r * Math.cos(a)] as const;
@@ -97,7 +98,7 @@ export function DailyBars({
   const dense = days.length > 14;
 
   return (
-    <svg className="bars" viewBox={`0 0 ${W} ${Hh}`} role="img" aria-label="每日时长按活动堆叠">
+    <svg className="bars" viewBox={`0 0 ${W} ${Hh}`} role="img" aria-label={tr("每日时长按活动堆叠")}>
       {Array.from({ length: Math.floor(max / step) + 1 }, (_, i) => i * step).map((v) => (
         <g key={v}>
           <line x1={pad.l} x2={W - pad.r} y1={y(v)} y2={y(v)} className="grid" />
@@ -129,7 +130,7 @@ export function DailyBars({
             })}
             {showLabel && (
               <text x={x + bw / 2} y={Hh - 8} className="axis" textAnchor="middle">
-                {dense ? date.getDate() : `${WEEKDAY[date.getDay()]} ${date.getDate()}`}
+                {dense ? date.getDate() : `${weekdayNarrow(d)} ${date.getDate()}`}
               </text>
             )}
           </g>
@@ -169,7 +170,7 @@ export function DayTimeline({
   const top = 6;
   const Hh = top + Math.max(1, lanes.length) * laneH + 24;
   return (
-    <svg className="timeline" viewBox={`0 0 ${W} ${Hh}`} role="img" aria-label="当天时间轴">
+    <svg className="timeline" viewBox={`0 0 ${W} ${Hh}`} role="img" aria-label={tr("当天时间轴")}>
       {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => {
         const xx = x(day + h * H);
         return (

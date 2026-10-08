@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 export function downloadJson(data: unknown, filename: string) {
   const blob = new Blob([JSON.stringify(data, null, 2) + '\n'], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -13,6 +14,6 @@ export async function readJsonFile(file: File): Promise<unknown> {
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error(`${file.name} 不是有效的 JSON 文件`);
+    throw new Error(tr("{0} 不是有效的 JSON 文件", file.name));
   }
 }

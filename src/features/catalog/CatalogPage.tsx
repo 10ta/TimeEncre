@@ -17,14 +17,15 @@ import { IconButton } from '../../ui/Icon';
 import { Drawer } from '../../ui/Drawer';
 import { useAutosave } from '../../ui/useAutosave';
 import { commitAndClose } from '../../ui/commitAndClose';
+import { tr } from '../../i18n';
 
-const LABEL: Record<CatalogKind, string> = { types: '活动', tags: '标签' };
+const LABEL: Record<CatalogKind, string> = { types: tr("活动"), tags: tr("标签") };
 
 export function CatalogPage() {
   return (
     <div className="page catalog">
       <header className="page-head">
-        <h1>类型</h1>
+        <h1>{tr("类型")}</h1>
       </header>
       {(['types', 'tags'] as const).map((kind) => (
         <section key={kind} className="catalog-section" aria-labelledby={`cat-${kind}`}>
@@ -69,8 +70,8 @@ function CatalogList({ kind }: { kind: CatalogKind }) {
     <>
       <p className="hint">
         {kind === 'types'
-          ? '计时页的格子按这里的顺序排列。归档后不再出现在计时页，历史记录不受影响。点一行展开编辑，改动即时保存。'
-          : '标签平级，一条记录可以打多个。'}
+          ? tr("计时页的格子按这里的顺序排列。归档后不再出现在计时页，历史记录不受影响。点一行展开编辑，改动即时保存。")
+          : tr("标签平级，一条记录可以打多个。")}
       </p>
 
       <ul className="cat-list">
@@ -78,10 +79,10 @@ function CatalogList({ kind }: { kind: CatalogKind }) {
           row(
             x,
             <>
-              <IconButton icon="up" label="上移" onClick={() => void moveCatalogItem(kind, x.id, -1)} />
-              <IconButton icon="down" label="下移" onClick={() => void moveCatalogItem(kind, x.id, 1)} />
+              <IconButton icon="up" label={tr("上移")} onClick={() => void moveCatalogItem(kind, x.id, -1)} />
+              <IconButton icon="down" label={tr("下移")} onClick={() => void moveCatalogItem(kind, x.id, 1)} />
               <button type="button" className="btn is-small" onClick={() => void setArchived(kind, x.id, true)}>
-                归档
+                {tr("归档")}
               </button>
             </>,
           ),
@@ -89,7 +90,7 @@ function CatalogList({ kind }: { kind: CatalogKind }) {
         <li className={`cat-add${openKey === 'new' ? ' is-open' : ''}`}>
           <div className="cat-row">
             <button type="button" className="cat-name" aria-expanded={openKey === 'new'} onClick={() => toggle('new')}>
-              ＋ 新建{LABEL[kind]}
+              {kind === 'types' ? tr("＋ 新建活动") : tr("＋ 新建标签")}
             </button>
           </div>
           <Drawer open={openKey === 'new'} onClose={close}>
@@ -101,7 +102,7 @@ function CatalogList({ kind }: { kind: CatalogKind }) {
       {archived.length > 0 && (
         <section className="archived">
           <button type="button" className="btn is-quiet" aria-expanded={showArchived} onClick={() => setShowArchived((v) => !v)}>
-            {showArchived ? '收起' : '显示'}已归档（{archived.length}）
+            {showArchived ? tr("收起已归档（{0}）", archived.length) : tr("显示已归档（{0}）", archived.length)}
           </button>
           {showArchived && (
             <ul className="cat-list is-archived">
@@ -109,7 +110,7 @@ function CatalogList({ kind }: { kind: CatalogKind }) {
                 row(
                   x,
                   <button type="button" className="btn is-small" onClick={() => void setArchived(kind, x.id, false)}>
-                    恢复
+                    {tr("恢复")}
                   </button>,
                 ),
               )}
@@ -163,25 +164,29 @@ function LiveCatalogForm({ kind, item, onClose }: { kind: CatalogKind; item: Cat
       }}
     >
       <label className="field">
-        <span className="field-label">名称</span>
+        <span className="field-label">{tr("名称")}</span>
         <input value={name} onChange={(e) => setName(e.target.value)} />
       </label>
       <EmojiField value={item.emoji} onChange={(emoji) => void save({ emoji })} />
       <ColorField value={color} onChange={setColor} />
       {confirmDelete && (
-        <p className="hint">删除后不再显示，已有记录仍保留并标注为已删除的{LABEL[kind]}。只是不想在计时页看到的话，用“归档”更合适。</p>
+        <p className="hint">
+          {kind === 'types'
+            ? tr("删除后不再显示，已有记录仍保留并标注为已删除的活动。只是不想在计时页看到的话，用“归档”更合适。")
+            : tr("删除后不再显示，已有记录仍保留并标注为已删除的标签。只是不想在计时页看到的话，用“归档”更合适。")}
+        </p>
       )}
-      {error && <p className="form-error" role="alert">{error}（这一处还没有保存）</p>}
+      {error && <p className="form-error" role="alert">{error}{tr("（这一处还没有保存）")}</p>}
       <div className="inline-foot">
-        <button type="button" className="btn is-small" disabled={!changed} onClick={() => void undo()}>撤销修改</button>
-        <span className="save-state" aria-live="polite">{saved && !error ? '已自动保存' : ''}</span>
+        <button type="button" className="btn is-small" disabled={!changed} onClick={() => void undo()}>{tr("撤销修改")}</button>
+        <span className="save-state" aria-live="polite">{saved && !error ? tr("已自动保存") : ''}</span>
         <span className="spacer" />
         {confirmDelete ? (
-          <button type="button" className="btn is-small is-danger" onClick={() => softDeleteCatalogItem(kind, item.id).then(onClose)}>确认删除</button>
+          <button type="button" className="btn is-small is-danger" onClick={() => softDeleteCatalogItem(kind, item.id).then(onClose)}>{tr("确认删除")}</button>
         ) : (
-          <button type="button" className="btn is-small is-ghost-danger" onClick={() => setConfirmDelete(true)}>删除</button>
+          <button type="button" className="btn is-small is-ghost-danger" onClick={() => setConfirmDelete(true)}>{tr("删除")}</button>
         )}
-        <button type="button" className="btn is-small" onClick={() => commitAndClose(formRef.current, onClose)}>收起</button>
+        <button type="button" className="btn is-small" onClick={() => commitAndClose(formRef.current, onClose)}>{tr("收起")}</button>
       </div>
     </div>
   );
@@ -193,14 +198,14 @@ function CreateCatalogForm({ kind, defaultColor, onDone }: { kind: CatalogKind; 
   const [color, setColor] = useState(defaultColor);
   const [error, setError] = useState<string | null>(null);
   const submit = async () => {
-    if (!name.trim()) return setError('请填写名称');
+    if (!name.trim()) return setError(tr("请填写名称"));
     await saveCatalogItem(kind, { name: name.trim(), emoji, color });
     onDone();
   };
   return (
     <div className="inline-form">
       <label className="field">
-        <span className="field-label">名称</span>
+        <span className="field-label">{tr("名称")}</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -213,8 +218,8 @@ function CreateCatalogForm({ kind, defaultColor, onDone }: { kind: CatalogKind; 
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="inline-foot">
         <span className="spacer" />
-        <button type="button" className="btn is-small" onClick={onDone}>取消</button>
-        <button type="button" className="btn is-small is-primary" onClick={() => void submit()}>添加</button>
+        <button type="button" className="btn is-small" onClick={onDone}>{tr("取消")}</button>
+        <button type="button" className="btn is-small is-primary" onClick={() => void submit()}>{tr("添加")}</button>
       </div>
     </div>
   );
@@ -225,21 +230,27 @@ function DuplicateNotice({ kind }: { kind: CatalogKind }) {
   const [result, setResult] = useState<string | null>(null);
   if (result) return <p className="notice" role="status">{result}</p>;
   if (!groups || groups.length === 0) return null;
+  const list = groups.map((g) => `${g[0].emoji}${g[0].name}×${g.length}`).join(tr("、"));
   return (
     <div className="notice is-warn dup-notice" role="status">
       <p>
-        有 {groups.length} 组同名的{LABEL[kind]}：{groups.map((g) => `${g[0].emoji}${g[0].name}×${g.length}`).join('、')}。
-        常见原因是在两台设备上都选了默认活动。合并后每组只保留一个，相关的记录、目标和 Pomo 设置会改为指向保留的那个。
+        {kind === 'types'
+          ? tr("有 {0} 组同名的活动：{1}。常见原因是在两台设备上都选了默认活动。合并后每组只保留一个，相关的记录、目标和 Pomo 设置会改为指向保留的那个。", groups.length, list)
+          : tr("有 {0} 组同名的标签：{1}。合并后每组只保留一个，相关的记录、目标和 Pomo 设置会改为指向保留的那个。", groups.length, list)}
       </p>
       <button
         type="button"
         className="btn is-small is-primary"
         onClick={async () => {
           const r = await mergeDuplicates(kind);
-          setResult(`已合并 ${r.groups} 组，移除 ${r.removed} 个重复的${LABEL[kind]}，更新了 ${r.recordsUpdated} 条记录。下次同步后其他设备也会一致。`);
+          setResult(
+            kind === 'types'
+              ? tr("已合并 {0} 组，移除 {1} 个重复的活动，更新了 {2} 条记录。下次同步后其他设备也会一致。", r.groups, r.removed, r.recordsUpdated)
+              : tr("已合并 {0} 组，移除 {1} 个重复的标签，更新了 {2} 条记录。下次同步后其他设备也会一致。", r.groups, r.removed, r.recordsUpdated),
+          );
         }}
       >
-        合并同名{LABEL[kind]}
+        {kind === 'types' ? tr("合并同名活动") : tr("合并同名标签")}
       </button>
     </div>
   );

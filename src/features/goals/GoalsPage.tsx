@@ -7,6 +7,7 @@ import { HISTORY_PERIODS, goalProgressMs, goalStatus, recentPeriods } from '../.
 import { CreateGoalForm, LiveGoalForm } from './GoalForms';
 import { Drawer } from '../../ui/Drawer';
 import { CURRENT_WORD, DIRECTION_LABEL, PERIOD_LABEL, STATUS_TEXT, viewGoal } from './goalView';
+import { tr } from '../../i18n';
 
 export function GoalsPage() {
   const goals = useGoals();
@@ -31,12 +32,12 @@ export function GoalsPage() {
   return (
     <div className="page goals">
       <header className="page-head">
-        <h1>目标</h1>
+        <h1>{tr("目标")}</h1>
       </header>
 
       {goals.length === 0 && (
         <p className="empty">
-          还没有目标。可以给活动或标签设定每天、每周、每月的时长，比如“每周至少学习 10 小时”“每天娱乐至多 1.5 小时”。
+          {tr("还没有目标。可以给活动或标签设定每天、每周、每月的时长，比如“每周至少学习 10 小时”“每天娱乐至多 1.5 小时”。")}
         </p>
       )}
 
@@ -55,13 +56,13 @@ export function GoalsPage() {
                   <span className={`goal-status is-${status}`}>{STATUS_TEXT[status]}</span>
                 </span>
                 <span className="goal-scope">
-                  {items.map((x) => `${x.emoji}${x.name}`).join('、') || '（引用的活动或标签已删除）'}
-                  {g.name && ` · ${PERIOD_LABEL[g.period]}${DIRECTION_LABEL[g.direction]} ${formatHm(target)}`}
+                  {items.map((x) => `${x.emoji}${x.name}`).join(tr("、")) || tr("（引用的活动或标签已删除）")}
+                  {g.name && ` · ${tr("{0}{1} {2}", PERIOD_LABEL[g.period], DIRECTION_LABEL[g.direction], formatHm(target))}`}
                 </span>
                 <span className="goal-progress">
                   <span className="goal-bar" aria-hidden="true">
                     <span className="goal-fill" style={{ width: `${pct}%` }} />
-                    {g.direction === 'atLeast' && <span className="goal-pace" style={{ left: `${elapsed * 100}%` }} title="按时间进度应到达的位置" />}
+                    {g.direction === 'atLeast' && <span className="goal-pace" style={{ left: `${elapsed * 100}%` }} title={tr("按时间进度应到达的位置")} />}
                   </span>
                   <span className="goal-numbers">
                     {CURRENT_WORD[g.period]} {formatHm(ms)} / {formatHm(target)}
@@ -71,16 +72,16 @@ export function GoalsPage() {
                   </span>
                 </span>
               </button>
-              <ol className="goal-history" aria-label="最近几个周期">
+              <ol className="goal-history" aria-label={tr("最近几个周期")}>
                 {[...periods].reverse().map((p, i, arr) => {
                   const isCur = i === arr.length - 1;
                   // 开始记录之前的周期没有数据，不算未达成
                   if (!isCur && (firstMs === null || p.to <= firstMs))
-                    return <li key={p.from} className="dot is-none" title={`${rangeLabel(p, now)}：还没开始记录`} />;
+                    return <li key={p.from} className="dot is-none" title={tr("{0}：还没开始记录", rangeLabel(p, now))} />;
                   const pms = goalProgressMs(g, records, p.from, p.to, now);
                   const st = goalStatus(g, pms, !isCur);
                   return (
-                    <li key={p.from} className={`dot is-${st}${isCur ? ' is-current' : ''}`} title={`${rangeLabel(p, now)}：${formatHm(pms)}，${STATUS_TEXT[st]}`} />
+                    <li key={p.from} className={`dot is-${st}${isCur ? ' is-current' : ''}`} title={tr("{0}：{1}，{2}", rangeLabel(p, now), formatHm(pms), STATUS_TEXT[st])} />
                   );
                 })}
               </ol>
@@ -95,7 +96,7 @@ export function GoalsPage() {
         })}
         <li>
           <button type="button" className={`add-card${openKey === 'new' ? ' is-active' : ''}`} aria-expanded={openKey === 'new'} onClick={() => toggle('new')}>
-            ＋ 新建目标
+            {tr("＋ 新建目标")}
           </button>
           <Drawer open={openKey === 'new'} onClose={() => setOpenKey(null)}>
             <div className="drawer-card">
@@ -104,7 +105,7 @@ export function GoalsPage() {
           </Drawer>
         </li>
       </ul>
-      {goals.length > 0 && <p className="hint">右侧小方块是最近几个周期的达成情况，最右边是当前周期；鼠标悬停可看具体时长。“至少”型目标的竖线表示按时间进度此刻应到达的位置。</p>}
+      {goals.length > 0 && <p className="hint">{tr("右侧小方块是最近几个周期的达成情况，最右边是当前周期；鼠标悬停可看具体时长。“至少”型目标的竖线表示按时间进度此刻应到达的位置。")}</p>}
 
     </div>
   );

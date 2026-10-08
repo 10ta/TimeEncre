@@ -3,11 +3,12 @@ import type { CatalogItem, Goal } from '../../schema';
 import { formatHm } from '../../lib/time';
 import { rangeOf, type Range } from '../../lib/range';
 import { goalProgressMs, goalStatus, type GoalStatus } from '../../lib/stats';
+import { tr } from '../../i18n';
 
-export const PERIOD_LABEL = { day: '每天', week: '每周', month: '每月' } as const;
-export const DIRECTION_LABEL = { atLeast: '至少', atMost: '至多' } as const;
-export const CURRENT_WORD = { day: '今天', week: '本周', month: '本月' } as const;
-export const STATUS_TEXT: Record<GoalStatus, string> = { met: '已达成', missed: '未达成', ongoing: '进行中', over: '已超出' };
+export const PERIOD_LABEL = { day: tr("每天"), week: tr("每周"), month: tr("每月") } as const;
+export const DIRECTION_LABEL = { atLeast: tr("至少"), atMost: tr("至多") } as const;
+export const CURRENT_WORD = { day: tr("今天"), week: tr("本周"), month: tr("本月") } as const;
+export const STATUS_TEXT: Record<GoalStatus, string> = { met: tr("已达成"), missed: tr("未达成"), ongoing: tr("进行中"), over: tr("已超出") };
 
 export interface GoalView {
   goal: Goal;
@@ -47,10 +48,10 @@ export function viewGoal(
   return {
     goal: g,
     period,
-    title: g.name || `${PERIOD_LABEL[g.period]}${DIRECTION_LABEL[g.direction]} ${formatHm(target)}`,
+    title: g.name || tr("{0}{1} {2}", PERIOD_LABEL[g.period], DIRECTION_LABEL[g.direction], formatHm(target)),
     shortTitle:
       g.name ||
-      `${items.map((x) => x.name).join('、') || '（已删除）'} ${DIRECTION_LABEL[g.direction]} ${formatHm(target)}`,
+      `${items.map((x) => x.name).join(tr("、")) || tr("（已删除）")} ${DIRECTION_LABEL[g.direction]} ${formatHm(target)}`,
     items,
     color: items[0]?.color ?? 'var(--accent)',
     ms,
@@ -61,10 +62,10 @@ export function viewGoal(
     remainText:
       g.direction === 'atLeast'
         ? remaining > 0
-          ? `还差 ${formatHm(remaining)}`
-          : `超额 ${formatHm(-remaining)}`
+          ? tr("还差 {0}", formatHm(remaining))
+          : tr("超额 {0}", formatHm(-remaining))
         : remaining >= 0
-          ? `还剩 ${formatHm(remaining)}`
-          : `超出 ${formatHm(-remaining)}`,
+          ? tr("还剩 {0}", formatHm(remaining))
+          : tr("超出 {0}", formatHm(-remaining)),
   };
 }

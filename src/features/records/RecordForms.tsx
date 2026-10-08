@@ -19,6 +19,7 @@ import {
 } from '../../db/actions';
 import type { TimeRecord } from '../../schema';
 import { formatHm, fromIso, fromLocalInput, toLocalInput } from '../../lib/time';
+import { tr } from '../../i18n';
 
 // ---------- 时间段 ----------
 
@@ -76,27 +77,27 @@ function IntervalsEditor({
   return (
     <div className="field">
       <span className="field-label">
-        时间段<span className="field-aside">共 {formatHm(total)}</span>
+        {tr("时间段")}<span className="field-aside">{tr("共 {0}", formatHm(total))}</span>
       </span>
       <ol className="iv-list">
         {rows.map((r, i) => (
           <li key={r.key}>
-            <input type="datetime-local" aria-label={`第 ${i + 1} 段开始`} value={r.start} onChange={(e) => set(r.key, { start: e.target.value })} />
+            <input type="datetime-local" aria-label={tr("第 {0} 段开始", i + 1)} value={r.start} onChange={(e) => set(r.key, { start: e.target.value })} />
             <span className="iv-sep" aria-hidden="true">–</span>
             {r.end === null ? (
-              <span className="iv-open">进行中</span>
+              <span className="iv-open">{tr("进行中")}</span>
             ) : (
-              <input type="datetime-local" aria-label={`第 ${i + 1} 段结束`} value={r.end} onChange={(e) => set(r.key, { end: e.target.value })} />
+              <input type="datetime-local" aria-label={tr("第 {0} 段结束", i + 1)} value={r.end} onChange={(e) => set(r.key, { end: e.target.value })} />
             )}
             {rows.length > 1 && r.end !== null && (
-              <IconButton icon="close" label={`删除第 ${i + 1} 段`} onClick={() => onChange(rows.filter((x) => x.key !== r.key))} />
+              <IconButton icon="close" label={tr("删除第 {0} 段", i + 1)} onClick={() => onChange(rows.filter((x) => x.key !== r.key))} />
             )}
           </li>
         ))}
       </ol>
       {canAdd && (
         <button type="button" className="btn is-small is-quiet iv-add" onClick={add}>
-          ＋ 添加一段
+          {tr("＋ 添加一段")}
         </button>
       )}
     </div>
@@ -107,14 +108,14 @@ function TypeSelect({ value, onChange }: { value: string; onChange: (id: string)
   const types = useTypes(true);
   return (
     <label className="field">
-      <span className="field-label">活动</span>
+      <span className="field-label">{tr("活动|字段")}</span>
       <select value={value} onChange={(e) => onChange(e.target.value)}>
         {types
           ?.filter((t) => !t.archived || t.id === value)
           .map((t) => (
             <option key={t.id} value={t.id}>
               {t.emoji} {t.name}
-              {t.archived ? '（已归档）' : ''}
+              {t.archived ? tr("（已归档）") : ''}
             </option>
           ))}
       </select>
@@ -128,8 +129,13 @@ function useOverlapNote() {
   const check = async (ivs: IntervalMs[], excludeId?: string) => {
     const hits = await findOverlaps(ivs, excludeId);
     if (!hits.length) return setNote(null), false;
-    const names = [...new Set(hits.map((r) => typeMap?.get(r.typeId)?.name ?? '未知活动'))];
-    setNote(`和「${names.slice(0, 3).join('、')}」${names.length > 3 ? '等' : ''}的时间有重叠。允许同时计时时这是正常的；如果是录错了，请调整时间。`);
+    const names = [...new Set(hits.map((r) => typeMap?.get(r.typeId)?.name ?? tr("未知活动")))];
+    const list = names.slice(0, 3).join(tr("、"));
+    setNote(
+      names.length > 3
+        ? tr("和「{0}」等的时间有重叠。允许同时计时时这是正常的；如果是录错了，请调整时间。", list)
+        : tr("和「{0}」的时间有重叠。允许同时计时时这是正常的；如果是录错了，请调整时间。", list),
+    );
     return true;
   };
   return { note, check, clear: () => setNote(null) };
@@ -219,11 +225,11 @@ export function LiveRecordForm({ rec, onClose }: { rec: TimeRecord; onClose: () 
         canAdd={rec.state !== 'running'}
       />
       <label className="field">
-        <span className="field-label">备注</span>
+        <span className="field-label">{tr("备注")}</span>
         <textarea
           rows={2}
           value={comment}
-          placeholder="可选"
+          placeholder={tr("可选")}
           onChange={(e) => {
             commentTouched.current = true;
             setComment(e.target.value);
@@ -232,22 +238,22 @@ export function LiveRecordForm({ rec, onClose }: { rec: TimeRecord; onClose: () 
       </label>
       <TagPicker value={rec.tagIds} onChange={(tagIds) => void save({ tagIds })} />
       {overlap.note && <p className="notice is-warn">{overlap.note}</p>}
-      {error && <p className="form-error" role="alert">{error}（这一处还没有保存）</p>}
+      {error && <p className="form-error" role="alert">{error}{tr("（这一处还没有保存）")}</p>}
       <div className="inline-foot">
-        <button type="button" className="btn is-small" disabled={!changed} onClick={() => void undo()} title="恢复到这次展开编辑之前的样子">
-          撤销修改
+        <button type="button" className="btn is-small" disabled={!changed} onClick={() => void undo()} title={tr("恢复到这次展开编辑之前的样子")}>
+          {tr("撤销修改")}
         </button>
-        <span className="save-state" aria-live="polite">{saved && !error ? '已自动保存' : ''}</span>
+        <span className="save-state" aria-live="polite">{saved && !error ? tr("已自动保存") : ''}</span>
         <span className="spacer" />
         {rec.state !== 'stopped' && (
-          <button type="button" className="btn is-small" onClick={() => void stopRecord(rec.id)}>停止</button>
+          <button type="button" className="btn is-small" onClick={() => void stopRecord(rec.id)}>{tr("停止")}</button>
         )}
         {confirmDelete ? (
-          <button type="button" className="btn is-small is-danger" onClick={() => deleteRecord(rec.id).then(onClose)}>确认删除</button>
+          <button type="button" className="btn is-small is-danger" onClick={() => deleteRecord(rec.id).then(onClose)}>{tr("确认删除")}</button>
         ) : (
-          <button type="button" className="btn is-small is-ghost-danger" onClick={() => setConfirmDelete(true)}>删除</button>
+          <button type="button" className="btn is-small is-ghost-danger" onClick={() => setConfirmDelete(true)}>{tr("删除")}</button>
         )}
-        <button type="button" className="btn is-small" onClick={close}>收起</button>
+        <button type="button" className="btn is-small" onClick={close}>{tr("收起")}</button>
       </div>
     </div>
   );
@@ -290,7 +296,7 @@ export function CreateRecordForm({
   }, [initial]);
 
   const submit = async () => {
-    if (!effectiveType) return setError('请先选择活动');
+    if (!effectiveType) return setError(tr("请先选择活动"));
     const ivs = rowsToIntervals(rows);
     const err = validateIntervals(ivs);
     if (err) return setError(err);
@@ -318,17 +324,17 @@ export function CreateRecordForm({
         canAdd
       />
       <label className="field">
-        <span className="field-label">备注</span>
-        <textarea rows={2} value={comment} placeholder="可选" onChange={(e) => setComment(e.target.value)} />
+        <span className="field-label">{tr("备注")}</span>
+        <textarea rows={2} value={comment} placeholder={tr("可选")} onChange={(e) => setComment(e.target.value)} />
       </label>
       <TagPicker value={tagIds} onChange={setTagIds} />
       {overlap.note && <p className="notice is-warn">{overlap.note}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="inline-foot">
         <span className="spacer" />
-        <button type="button" className="btn is-small" onClick={onDone}>取消</button>
+        <button type="button" className="btn is-small" onClick={onDone}>{tr("取消")}</button>
         <button type="button" className="btn is-small is-primary" onClick={() => void submit()}>
-          {confirmOverlap ? '仍然添加' : '添加'}
+          {confirmOverlap ? tr("仍然添加") : tr("添加")}
         </button>
       </div>
     </div>

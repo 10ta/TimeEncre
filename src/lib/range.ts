@@ -1,5 +1,6 @@
 // 日 / 周 / 月区间。全部按本地时区的自然日计算（startOfDay / addDays 能正确处理夏令时）。
 import { addDays, startOfDay } from './time';
+import { rangeLabelText } from '../i18n/dates';
 
 export type RangeMode = 'day' | 'week' | 'month';
 
@@ -41,34 +42,10 @@ export function daysIn(from: number, to: number): number[] {
   return out;
 }
 
-const WEEKDAY = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-const md = (ms: number) => {
-  const d = new Date(ms);
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
-};
-
-export function dayLabel(dayStart: number, now: number): string {
-  const today = startOfDay(now);
-  const base = `${md(dayStart)} ${WEEKDAY[new Date(dayStart).getDay()]}`;
-  const sameYear = new Date(dayStart).getFullYear() === new Date(now).getFullYear();
-  const withYear = sameYear ? base : `${new Date(dayStart).getFullYear()}年${base}`;
-  if (dayStart === today) return `今天 ${withYear}`;
-  if (dayStart === addDays(today, -1)) return `昨天 ${withYear}`;
-  return withYear;
-}
+export { dayLabel } from '../i18n/dates';
 
 export function rangeLabel(r: Range, now: number): string {
-  if (r.mode === 'day') return dayLabel(r.from, now);
-  if (r.mode === 'month') {
-    const d = new Date(r.from);
-    return `${d.getFullYear()}年${d.getMonth() + 1}月`;
-  }
-  const last = addDays(r.to, -1);
-  const y1 = new Date(r.from).getFullYear();
-  const y2 = new Date(last).getFullYear();
-  const yNow = new Date(now).getFullYear();
-  if (y1 !== y2) return `${y1}年${md(r.from)} – ${y2}年${md(last)}`;
-  return `${y1 === yNow ? '' : `${y1}年`}${md(r.from)} – ${md(last)}`;
+  return rangeLabelText(r.mode, r.from, r.to, now);
 }
 
 export const rangeContains = (r: Range, ms: number) => ms >= r.from && ms < r.to;

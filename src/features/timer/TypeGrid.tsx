@@ -4,6 +4,7 @@ import type { DbRecord } from '../../db/db';
 import { toggleType } from '../../db/actions';
 import { useLongPress, useNow } from '../../ui/hooks';
 import { formatClock, recordSpans, totalMs } from '../../lib/time';
+import { tr } from '../../i18n';
 
 export function TypeGrid({
   types,
@@ -24,9 +25,9 @@ export function TypeGrid({
         <Tile key={t.id} type={t} active={latestByType.get(t.id)} now={now} onOptions={() => onOptions(t.id)} />
       ))}
       <li>
-        <a className="tile is-manage" href="#/catalog" title="增删、排序、归档活动和标签">
+        <a className="tile is-manage" href="#/catalog" title={tr("增删、排序、归档活动和标签")}>
           <span className="tile-emoji" aria-hidden="true">⚙️</span>
-          <span className="tile-name">管理</span>
+          <span className="tile-name">{tr("管理")}</span>
         </a>
       </li>
     </ul>
@@ -45,15 +46,15 @@ function Tile({
   onOptions: () => void;
 }) {
   const press = useLongPress(onOptions, () => void toggleType(type.id));
-  const stateLabel = active ? (active.state === 'running' ? '计时中，点击停止' : '已暂停，点击继续') : '点击开始';
+  const stateLabel = active ? (active.state === 'running' ? tr("计时中，点击停止") : tr("已暂停，点击继续")) : tr("点击开始");
   return (
     <li>
       <button
         type="button"
         className={`tile${active ? ` is-${active.state}` : ''}`}
         style={{ '--c': type.color } as CSSProperties}
-        aria-label={`${type.name}，${stateLabel}`}
-        title={`${stateLabel}；长按或右键：带备注和标签开始`}
+        aria-label={tr("{0}，{1}", type.name, stateLabel)}
+        title={tr("{0}；长按或右键：带备注和标签开始", stateLabel)}
         {...press}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && e.shiftKey) {

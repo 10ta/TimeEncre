@@ -58,3 +58,13 @@ describe('番茄钟与记录', () => {
     expect(p.runSince).toBeLessThanOrEqual(now - 10 * M + 1000);
   });
 });
+
+describe('Pomo 备注标记', () => {
+  it('新标记不带语言，旧的中文标记也能识别', async () => {
+    const { isPomodoroComment, POMODORO_COMMENT } = await import('../src/pomodoro/store');
+    expect(POMODORO_COMMENT).toBe('🍅 Pomo');
+    expect(isPomodoroComment('🍅 番茄钟')).toBe(true);
+    expect(isPomodoroComment('🍅 Pomo')).toBe(true);
+    expect(isPomodoroComment('番茄')).toBe(false);
+  });
+});

@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { useRecordsAround, useTypeMap } from '../../db/hooks';
 import { useNow } from '../../ui/hooks';
 import { addDays, clippedMs, formatHm, recordSpans, startOfDay } from '../../lib/time';
+import { tr } from '../../i18n';
 
 export function TodayStrip() {
   useNow(15_000); // 定时刷新；记录变化时 live query 也会触发重渲染
@@ -24,8 +25,8 @@ export function TodayStrip() {
   return (
     <section className="today" aria-labelledby="today-title">
       <header className="today-head">
-        <h2 id="today-title">今天</h2>
-        <span className="today-total">{total > 0 ? `已记录 ${formatHm(total)}` : '还没有记录'}</span>
+        <h2 id="today-title">{tr("今天")}</h2>
+        <span className="today-total">{total > 0 ? tr("已记录 {0}", formatHm(total)) : tr("还没有记录")}</span>
       </header>
       {rows.length > 0 && (
         <ul className="today-list">
@@ -34,7 +35,7 @@ export function TodayStrip() {
             return (
               <li key={typeId} style={{ '--c': t?.color ?? '#888', '--w': `${(ms / max) * 100}%` } as CSSProperties}>
                 <span className="today-name">
-                  {t?.emoji} {t?.name ?? '未知活动'}
+                  {t?.emoji} {t?.name ?? tr("未知活动")}
                 </span>
                 <span className="today-bar" aria-hidden="true">
                   <span />

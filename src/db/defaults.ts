@@ -1,18 +1,25 @@
 import type { CatalogItem, Settings } from '../schema';
 import { toIso } from '../lib/time';
+import { getLang } from '../i18n';
 
 export const PALETTE = [
   '#7A5C8E', '#C7684B', '#9A9A3A', '#E07B1F', '#2E7D6B',
   '#3F6FB5', '#B5487A', '#5B8C3A', '#8C6A4A', '#4A5A8C',
 ];
 
-/** [固定 id 后缀, 名称, emoji] */
-const DEFAULT_TYPES: Array<[string, string, string]> = [
-  ['sleep', '睡眠', '😴'], ['bath', '洗漱', '🛁'], ['commute', '通勤', '🚌'], ['work', '工作', '💼'],
-  ['eat', '吃饭', '🍜'], ['sport', '运动', '🏃'], ['read', '阅读', '📖'], ['shop', '购物', '🛍️'],
-  ['fun', '娱乐', '🎮'], ['housework', '家务', '🧹'], ['movie', '电影', '🎬'], ['walk', '散步', '🚶'],
-  ['study', '学习', '🎓'], ['internet', '上网', '💻'],
+/** [固定 id 后缀, 中文名, 法语名, emoji] */
+const DEFAULT_TYPES: Array<[string, string, string, string]> = [
+  ['sleep', '睡眠', 'Sommeil', '😴'], ['bath', '洗漱', 'Toilette', '🛁'], ['commute', '通勤', 'Trajet', '🚌'],
+  ['work', '工作', 'Travail', '💼'], ['eat', '吃饭', 'Repas', '🍜'], ['sport', '运动', 'Sport', '🏃'],
+  ['read', '阅读', 'Lecture', '📖'], ['shop', '购物', 'Courses', '🛍️'], ['fun', '娱乐', 'Loisirs', '🎮'],
+  ['housework', '家务', 'Ménage', '🧹'], ['movie', '电影', 'Cinéma', '🎬'], ['walk', '散步', 'Promenade', '🚶'],
+  ['study', '学习', 'Études', '🎓'], ['internet', '上网', 'Internet', '💻'],
 ];
+
+/** 默认活动的所有语言名称 → 固定 id（合并同名时识别默认活动用） */
+export const DEFAULT_NAME_TO_ID = new Map(
+  DEFAULT_TYPES.flatMap(([key, zh, fr]) => [[zh, `default-${key}`], [fr, `default-${key}`]] as Array<[string, string]>),
+);
 
 export const DEFAULT_ID_PREFIX = 'default-';
 
@@ -23,9 +30,10 @@ export const DEFAULT_ID_PREFIX = 'default-';
  */
 export function defaultTypes(): CatalogItem[] {
   const stamp = toIso(0);
-  return DEFAULT_TYPES.map(([key, name, emoji], i) => ({
+  const lang = getLang();
+  return DEFAULT_TYPES.map(([key, zh, fr, emoji], i) => ({
     id: DEFAULT_ID_PREFIX + key,
-    name,
+    name: lang === 'fr' ? fr : zh,
     emoji,
     color: PALETTE[i % PALETTE.length],
     order: i,

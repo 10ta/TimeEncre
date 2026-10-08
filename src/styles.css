@@ -2751,3 +2751,12 @@ body.has-dock .floating-sheet-wrap {
     max-height: calc(100dvh - 19rem);
   }
 }
+
+/* 日历左上角的月份 */
+.cal-month {
+  align-self: center;
+  justify-self: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}

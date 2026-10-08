@@ -7,6 +7,7 @@ import { CURRENT_SCHEMA_VERSION, parseProfileFile, parseRecordsFile } from '../s
 import { mergeLww } from '../io/bundle';
 import { fromIso } from '../lib/time';
 import { sha1Hex } from '../lib/sha1';
+import { tr } from '../i18n';
 
 const KEY_ORDER = [
   'schemaVersion', 'kind', 'month', 'id', 'name', 'emoji', 'color', 'typeId', 'tagIds', 'comment',
@@ -92,7 +93,7 @@ export async function applyRemoteFile(rel: string, text: string): Promise<void> 
   try {
     raw = JSON.parse(text);
   } catch {
-    throw new Error(`远端文件 ${rel} 不是有效的 JSON，同步已中止。`);
+    throw new Error(tr("远端文件 {0} 不是有效的 JSON，同步已中止。", rel));
   }
   if (rel === PROFILE_PATH) {
     const p = parseProfileFile(raw);

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { tr } from '../i18n';
 
 /**
  * value 与 saved 不同时，停顿 delay 毫秒后调用 save；组件卸载时若还有未保存的改动，立即保存。
@@ -50,5 +51,5 @@ export function useAutosave<T>(value: T, saved: T, save: (v: T) => void, delay =
 
 /** “已自动保存”提示 */
 export function savedLabel(at: number | null): string | null {
-  return at ? '已自动保存' : null;
+  return at ? tr("已自动保存") : null;
 }

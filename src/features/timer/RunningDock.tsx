@@ -10,6 +10,7 @@ import { useOutsideClose } from '../../ui/useOutsideClose';
 import { commitAndClose } from '../../ui/commitAndClose';
 import { formatClock, recordSpans, totalMs } from '../../lib/time';
 import { LiveRecordForm } from '../records/RecordForms';
+import { tr } from '../../i18n';
 
 export function RunningDock() {
   const actives = useActiveRecords();
@@ -36,7 +37,7 @@ export function RunningDock() {
   const openType = open ? typeMap.get(open.typeId) : undefined;
 
   return (
-    <div className="dock" role="region" aria-label="进行中">
+    <div className="dock" role="region" aria-label={tr("进行中")}>
       {open && (
         <div
           ref={sheetRef}
@@ -46,7 +47,7 @@ export function RunningDock() {
         >
           <header className="dock-sheet-head">
             <span className="run-emoji" aria-hidden="true">{openType?.emoji ?? '❔'}</span>
-            <strong>{openType?.name ?? '未知活动'}</strong>
+            <strong>{openType?.name ?? tr("未知活动")}</strong>
             <span className="dock-sheet-clock">{formatClock(totalMs(recordSpans(open, now)))}</span>
           </header>
           <LiveRecordForm key={open.id} rec={fromDb(open)} onClose={() => setOpenId(null)} />
@@ -55,7 +56,7 @@ export function RunningDock() {
       <ul className="dock-items">
         {actives.map((r) => {
           const type = typeMap.get(r.typeId);
-          const name = type?.name ?? '未知活动';
+          const name = type?.name ?? tr("未知活动");
           const tags = r.tagIds.map((id) => tagMap.get(id)).filter((t) => t && !t.deleted);
           return (
             <li
@@ -67,7 +68,7 @@ export function RunningDock() {
                 type="button"
                 className="dock-main"
                 aria-expanded={openId === r.id}
-                aria-label={`编辑 ${name}`}
+                aria-label={tr("编辑 {0}", name)}
                 onClick={() =>
                   openId ? commitAndClose(sheetRef.current, () => setOpenId(openId === r.id ? null : r.id)) : setOpenId(r.id)
                 }
@@ -76,7 +77,7 @@ export function RunningDock() {
                 <span className="dock-text">
                   <span className="dock-name">
                     {name}
-                    {r.state === 'paused' && <span className="badge">已暂停</span>}
+                    {r.state === 'paused' && <span className="badge">{tr("已暂停")}</span>}
                   </span>
                   {(tags.length > 0 || r.comment) && (
                     <span className="dock-meta">
@@ -90,11 +91,11 @@ export function RunningDock() {
               </button>
               <span className="dock-actions">
                 {r.state === 'running' ? (
-                  <IconButton icon="pause" label="暂停" onClick={() => void pauseRecord(r.id)} />
+                  <IconButton icon="pause" label={tr("暂停")} onClick={() => void pauseRecord(r.id)} />
                 ) : (
-                  <IconButton icon="play" label="继续" onClick={() => void resumeRecord(r.id)} />
+                  <IconButton icon="play" label={tr("继续")} onClick={() => void resumeRecord(r.id)} />
                 )}
-                <IconButton icon="stop" label="停止" tone="danger" onClick={() => void stopRecord(r.id)} />
+                <IconButton icon="stop" label={tr("停止")} tone="danger" onClick={() => void stopRecord(r.id)} />
               </span>
             </li>
           );

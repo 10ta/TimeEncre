@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { IconButton } from '../../ui/Icon';
 import { rangeContains, rangeLabel, type Range, type RangeMode } from '../../lib/range';
+import { tr } from '../../i18n';
 
 const MODES: Array<[RangeMode, string]> = [
-  ['day', '日'],
-  ['week', '周'],
-  ['month', '月'],
+  ['day', tr("日")],
+  ['week', tr("周")],
+  ['month', tr("月")],
 ];
 
 /** 日/周/月切换 + 前后翻页 + 回到今天。历史页和统计页共用 */
@@ -27,7 +28,7 @@ export function RangeNav({
   const isCurrent = rangeContains(range, now);
   return (
     <div className="range-nav">
-      <div className="tabs" role="tablist" aria-label="时间范围">
+      <div className="tabs" role="tablist" aria-label={tr("时间范围")}>
         {MODES.map(([m, label]) => (
           <button key={m} type="button" role="tab" aria-selected={range.mode === m} className={range.mode === m ? 'is-on' : undefined} onClick={() => onMode(m)}>
             {label}
@@ -35,7 +36,7 @@ export function RangeNav({
         ))}
       </div>
       <div className="range-step">
-        <IconButton icon="left" label="上一页" onClick={() => onShift(-1)} />
+        <IconButton icon="left" label={tr("上一页")} onClick={() => onShift(-1)} />
         <div className="range-label">
           <span className="range-title">{rangeLabel(range, now)}</span>
           {summary && <span className="range-summary">{summary}</span>}
@@ -43,12 +44,12 @@ export function RangeNav({
         {isCurrent ? (
           <span className="icon-btn is-placeholder" aria-hidden="true" />
         ) : (
-          <IconButton icon="right" label="下一页" onClick={() => onShift(1)} />
+          <IconButton icon="right" label={tr("下一页")} onClick={() => onShift(1)} />
         )}
       </div>
       {!isCurrent && (
         <button type="button" className="btn is-small" onClick={onToday}>
-          回到今天
+          {tr("回到今天")}
         </button>
       )}
     </div>

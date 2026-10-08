@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { getSyncConfig, syncNow, usePendingFiles, useSyncConfig, useSyncState, useSyncStatus } from './engine';
 import { fromIso } from '../lib/time';
+import { tr } from '../i18n';
+import { timeText } from '../i18n/dates';
 
 /** 侧边栏底部的同步状态 */
 export function SyncBadge() {
@@ -12,27 +14,27 @@ export function SyncBadge() {
   if (!cfg) {
     return (
       <a className="sync-badge is-off" href="#/settings">
-        未连接同步
+        {tr("未连接同步")}
       </a>
     );
   }
-  if (status.phase === 'syncing') return <span className="sync-badge is-busy">正在同步…</span>;
+  if (status.phase === 'syncing') return <span className="sync-badge is-busy">{tr("正在同步…")}</span>;
   if (status.phase === 'error')
     return (
       <a className="sync-badge is-error" href="#/settings" title={status.message}>
-        同步失败，查看原因
+        {tr("同步失败，查看原因")}
       </a>
     );
   if (pending)
     return (
       <button type="button" className="sync-badge is-pending" onClick={() => void syncNow().catch(() => undefined)}>
-        {pending} 个文件待同步
+        {tr("{0} 个文件待同步", pending)}
       </button>
     );
   const t = state?.lastSyncAt ? new Date(fromIso(state.lastSyncAt)) : null;
   return (
-    <button type="button" className="sync-badge is-ok" onClick={() => void syncNow().catch(() => undefined)} title="点击立即同步">
-      {t ? `${t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 已同步` : '尚未同步'}
+    <button type="button" className="sync-badge is-ok" onClick={() => void syncNow().catch(() => undefined)} title={tr("点击立即同步")}>
+      {t ? tr("{0} 已同步", timeText(t.getTime())) : tr("尚未同步")}
     </button>
   );
 }

@@ -4,6 +4,7 @@ import { useNow } from '../../ui/hooks';
 import { formatHm, startOfDay } from '../../lib/time';
 import { rangeOf } from '../../lib/range';
 import { CURRENT_WORD, STATUS_TEXT, viewGoal } from './goalView';
+import { tr } from '../../i18n';
 
 /** 首页（计时页）的目标进度：每天的目标在前，周、月目标随后 */
 export function TodayGoals() {
@@ -27,8 +28,8 @@ export function TodayGoals() {
   return (
     <section className="today-goals" aria-labelledby="today-goals-title">
       <header className="today-head">
-        <h2 id="today-goals-title">目标</h2>
-        <a className="section-link" href="#/goals">查看全部 ›</a>
+        <h2 id="today-goals-title">{tr("目标")}</h2>
+        <a className="section-link" href="#/goals">{tr("查看全部 ›")}</a>
       </header>
       <ul>
         {views.map((v) => (

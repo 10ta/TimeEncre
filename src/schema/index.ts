@@ -15,6 +15,7 @@ import {
   RecordsFileV1,
   SettingsV1,
 } from './v1';
+import { tr } from '../i18n';
 
 export const CURRENT_SCHEMA_VERSION = 1;
 
@@ -48,22 +49,22 @@ const migrations: Migration[] = [];
 export class SchemaTooNewError extends Error {
   constructor(public fileVersion: number) {
     super(
-      `数据文件是 v${fileVersion}，当前程序只支持到 v${CURRENT_SCHEMA_VERSION}。请刷新页面更新到最新版本。`,
+      tr("数据文件是 v{0}，当前程序只支持到 v{1}。请刷新页面更新到最新版本。", fileVersion, CURRENT_SCHEMA_VERSION),
     );
   }
 }
 
 export function migrateFile(raw: unknown): AnyFile {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new Error('不是有效的数据文件（应为 JSON 对象）');
+    throw new Error(tr("不是有效的数据文件（应为 JSON 对象）"));
   }
   let file = raw as AnyFile;
   let v = file.schemaVersion;
-  if (typeof v !== 'number') throw new Error('数据文件缺少 schemaVersion');
+  if (typeof v !== 'number') throw new Error(tr("数据文件缺少 schemaVersion"));
   if (v > CURRENT_SCHEMA_VERSION) throw new SchemaTooNewError(v);
   while (v < CURRENT_SCHEMA_VERSION) {
     const m = migrations.find((x) => x.from === v);
-    if (!m) throw new Error(`缺少从 v${v} 升级的迁移脚本`);
+    if (!m) throw new Error(tr("缺少从 v{0} 升级的迁移脚本", v));
     file = { ...m.up(file), schemaVersion: m.to };
     v = m.to;
   }

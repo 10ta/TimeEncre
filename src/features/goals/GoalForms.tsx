@@ -6,6 +6,7 @@ import type { Goal } from '../../schema';
 import { useAutosave } from '../../ui/useAutosave';
 import { commitAndClose } from '../../ui/commitAndClose';
 import { DIRECTION_LABEL, PERIOD_LABEL } from './goalView';
+import { tr } from '../../i18n';
 
 type Fields = Omit<GoalDraft, 'id'>;
 
@@ -30,19 +31,19 @@ function GoalFields({
   return (
     <>
       <div className="goal-sentence">
-        <select value={value.period} onChange={(e) => onChange({ period: e.target.value as Fields['period'] })} aria-label="周期">
+        <select value={value.period} onChange={(e) => onChange({ period: e.target.value as Fields['period'] })} aria-label={tr("周期")}>
           {Object.entries(PERIOD_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <select value={value.direction} onChange={(e) => onChange({ direction: e.target.value as Fields['direction'] })} aria-label="方向">
+        <select value={value.direction} onChange={(e) => onChange({ direction: e.target.value as Fields['direction'] })} aria-label={tr("方向")}>
           {Object.entries(DIRECTION_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <input type="number" min="0" inputMode="numeric" value={hours} onChange={(e) => onHours(e.target.value)} aria-label="小时" />
-        <span>小时</span>
-        <input type="number" min="0" max="59" step="5" inputMode="numeric" value={minutes} onChange={(e) => onMinutes(e.target.value)} aria-label="分钟" />
-        <span>分钟</span>
+        <input type="number" min="0" inputMode="numeric" value={hours} onChange={(e) => onHours(e.target.value)} aria-label={tr("小时")} />
+        <span>{tr("小时")}</span>
+        <input type="number" min="0" max="59" step="5" inputMode="numeric" value={minutes} onChange={(e) => onMinutes(e.target.value)} aria-label={tr("分钟")} />
+        <span>{tr("分钟")}</span>
       </div>
       <div className="field">
-        <span className="field-label">计入哪些活动</span>
+        <span className="field-label">{tr("计入哪些活动")}</span>
         <div className="chips">
           {types?.map((t) => (
             <button key={t.id} type="button" className={`chip${value.typeIds.includes(t.id) ? ' is-on' : ''}`} style={{ '--c': t.color } as CSSProperties} aria-pressed={value.typeIds.includes(t.id)} onClick={() => onChange({ typeIds: toggle(value.typeIds, t.id) })}>
@@ -52,7 +53,7 @@ function GoalFields({
         </div>
       </div>
       <div className="field">
-        <span className="field-label">或带有这些标签的记录</span>
+        <span className="field-label">{tr("或带有这些标签的记录")}</span>
         <div className="chips">
           {tags?.length ? (
             tags.map((t) => (
@@ -61,10 +62,10 @@ function GoalFields({
               </button>
             ))
           ) : (
-            <span className="hint">还没有标签</span>
+            <span className="hint">{tr("还没有标签")}</span>
           )}
         </div>
-        <p className="hint">记录只要满足任一条件就计入。</p>
+        <p className="hint">{tr("记录只要满足任一条件就计入。")}</p>
       </div>
     </>
   );
@@ -118,20 +119,20 @@ export function LiveGoalForm({ goal, onClose }: { goal: Goal; onClose: () => voi
     >
       <GoalFields value={goal} onChange={(p) => void save(p)} hours={hours} minutes={minutes} onHours={setHours} onMinutes={setMinutes} />
       <label className="field">
-        <span className="field-label">名称（可选）</span>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="留空则自动生成" />
+        <span className="field-label">{tr("名称（可选）")}</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("留空则自动生成")} />
       </label>
-      {error && <p className="form-error" role="alert">{error}（这一处还没有保存）</p>}
+      {error && <p className="form-error" role="alert">{error}{tr("（这一处还没有保存）")}</p>}
       <div className="inline-foot">
-        <button type="button" className="btn is-small" disabled={!changed} onClick={() => void undo()}>撤销修改</button>
-        <span className="save-state" aria-live="polite">{saved && !error ? '已自动保存' : ''}</span>
+        <button type="button" className="btn is-small" disabled={!changed} onClick={() => void undo()}>{tr("撤销修改")}</button>
+        <span className="save-state" aria-live="polite">{saved && !error ? tr("已自动保存") : ''}</span>
         <span className="spacer" />
         {confirmDelete ? (
-          <button type="button" className="btn is-small is-danger" onClick={() => deleteGoal(goal.id).then(onClose)}>确认删除</button>
+          <button type="button" className="btn is-small is-danger" onClick={() => deleteGoal(goal.id).then(onClose)}>{tr("确认删除")}</button>
         ) : (
-          <button type="button" className="btn is-small is-ghost-danger" onClick={() => setConfirmDelete(true)}>删除</button>
+          <button type="button" className="btn is-small is-ghost-danger" onClick={() => setConfirmDelete(true)}>{tr("删除")}</button>
         )}
-        <button type="button" className="btn is-small" onClick={() => commitAndClose(formRef.current, onClose)}>收起</button>
+        <button type="button" className="btn is-small" onClick={() => commitAndClose(formRef.current, onClose)}>{tr("收起")}</button>
       </div>
     </div>
   );
@@ -154,14 +155,14 @@ export function CreateGoalForm({ onDone }: { onDone: () => void }) {
     <div className="inline-form">
       <GoalFields value={value} onChange={(p) => setValue((v) => ({ ...v, ...p }))} hours={hours} minutes={minutes} onHours={setHours} onMinutes={setMinutes} />
       <label className="field">
-        <span className="field-label">名称（可选）</span>
-        <input value={value.name} onChange={(e) => setValue((v) => ({ ...v, name: e.target.value }))} placeholder="留空则自动生成" />
+        <span className="field-label">{tr("名称（可选）")}</span>
+        <input value={value.name} onChange={(e) => setValue((v) => ({ ...v, name: e.target.value }))} placeholder={tr("留空则自动生成")} />
       </label>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="inline-foot">
         <span className="spacer" />
-        <button type="button" className="btn is-small" onClick={onDone}>取消</button>
-        <button type="button" className="btn is-small is-primary" onClick={() => void submit()}>添加</button>
+        <button type="button" className="btn is-small" onClick={onDone}>{tr("取消")}</button>
+        <button type="button" className="btn is-small is-primary" onClick={() => void submit()}>{tr("添加")}</button>
       </div>
     </div>
   );

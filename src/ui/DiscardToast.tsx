@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { onRecordDiscarded, restoreRecord } from '../db/actions';
 import { useTypeMap } from '../db/hooks';
 import type { TimeRecord } from '../schema';
+import { tr } from '../i18n';
 
 /** 过短的计时被作废时提示，可一键恢复 */
 export function DiscardToast() {
@@ -18,7 +19,7 @@ export function DiscardToast() {
   return (
     <div className="toast" role="status">
       <span>
-        {t ? `${t.emoji} ${t.name}` : '这条计时'}不足 {item.seconds} 秒，已作废。
+        {tr("{0} 不足 {1} 秒，已作废。", t ? `${t.emoji} ${t.name}` : tr("这条计时"), item.seconds)}
       </span>
       <button
         type="button"
@@ -28,7 +29,7 @@ export function DiscardToast() {
           setItem(null);
         }}
       >
-        恢复
+        {tr("恢复")}
       </button>
     </div>
   );

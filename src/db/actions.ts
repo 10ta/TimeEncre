@@ -3,8 +3,9 @@ import { db, fromDb, toDb, type DbRecord } from './db';
 import type { CatalogItem, Settings, TimeRecord } from '../schema';
 import { newId } from '../lib/id';
 import { fromIso, toIso } from '../lib/time';
-import { DEFAULT_ID_PREFIX, PALETTE, defaultSettings, defaultTypes } from './defaults';
+import { DEFAULT_ID_PREFIX, DEFAULT_NAME_TO_ID, PALETTE, defaultSettings, defaultTypes } from './defaults';
 import { fillIntervals, gapNeighbors } from '../lib/gaps';
+import { tr } from '../i18n';
 
 const SETTINGS_KEY = 'settings';
 const stamp = (ms = Date.now()) => toIso(ms);
@@ -180,21 +181,21 @@ export interface IntervalMs {
 
 /** 区间合法性：至少一段、按时间排序互不重叠、开始早于结束、不晚于现在；只有最后一段可以未结束 */
 export function validateIntervals(ivs: IntervalMs[], now = Date.now()): string | null {
-  if (ivs.length === 0) return '至少要有一段时间';
+  if (ivs.length === 0) return tr("至少要有一段时间");
   for (let i = 0; i < ivs.length; i++) {
     const { start, end } = ivs[i];
-    const n = ivs.length > 1 ? `第 ${i + 1} 段` : '';
-    if (!Number.isFinite(start)) return `${n}开始时间无效`;
-    if (start > now) return `${n}开始时间不能晚于现在`;
+    const n = ivs.length > 1 ? tr("第 {0} 段", i + 1) : '';
+    if (!Number.isFinite(start)) return tr("{0}开始时间无效", n);
+    if (start > now) return tr("{0}开始时间不能晚于现在", n);
     if (end === null) {
-      if (i !== ivs.length - 1) return `${n}缺少结束时间`;
+      if (i !== ivs.length - 1) return tr("{0}缺少结束时间", n);
       continue;
     }
-    if (!Number.isFinite(end)) return `${n}结束时间无效`;
-    if (end <= start) return `${n}结束时间必须晚于开始时间`;
-    if (end > now + 60_000) return `${n}结束时间不能晚于现在`;
+    if (!Number.isFinite(end)) return tr("{0}结束时间无效", n);
+    if (end <= start) return tr("{0}结束时间必须晚于开始时间", n);
+    if (end > now + 60_000) return tr("{0}结束时间不能晚于现在", n);
     const next = ivs[i + 1];
-    if (next && next.start < end) return `第 ${i + 1} 段和第 ${i + 2} 段时间重叠或顺序颠倒`;
+    if (next && next.start < end) return tr("第 {0} 段和第 {1} 段时间重叠或顺序颠倒", i + 1, i + 2);
   }
   return null;
 }
@@ -231,7 +232,7 @@ export async function saveRecord(id: string, draft: RecordDraft) {
 export async function createManualRecord(draft: RecordDraft): Promise<string> {
   const err = validateIntervals(draft.intervals);
   if (err) throw new Error(err);
-  if (draft.intervals.some((iv) => iv.end === null)) throw new Error('补录的记录需要填写结束时间');
+  if (draft.intervals.some((iv) => iv.end === null)) throw new Error(tr("补录的记录需要填写结束时间"));
   const rec: TimeRecord = {
     id: newId(),
     typeId: draft.typeId,
@@ -375,8 +376,8 @@ export interface GoalDraft {
 }
 
 export async function saveGoal(d: GoalDraft): Promise<string> {
-  if (d.typeIds.length === 0 && d.tagIds.length === 0) throw new Error('至少选择一个活动或标签');
-  if (!(d.targetMinutes > 0)) throw new Error('目标时长必须大于 0');
+  if (d.typeIds.length === 0 && d.tagIds.length === 0) throw new Error(tr("至少选择一个活动或标签"));
+  if (!(d.targetMinutes > 0)) throw new Error(tr("目标时长必须大于 0"));
   const id = d.id ?? newId();
   await db.goals.put({
     id,
@@ -433,8 +434,8 @@ export async function patchGoal(id: string, patch: Partial<Omit<GoalDraft, 'id'>
   const cur = await db.goals.get(id);
   if (!cur) return;
   const next = { ...cur, ...patch };
-  if (next.typeIds.length === 0 && next.tagIds.length === 0) throw new Error('至少选择一个活动或标签');
-  if (!(next.targetMinutes > 0)) throw new Error('目标时长必须大于 0');
+  if (next.typeIds.length === 0 && next.tagIds.length === 0) throw new Error(tr("至少选择一个活动或标签"));
+  if (!(next.targetMinutes > 0)) throw new Error(tr("目标时长必须大于 0"));
   await db.goals.put({ ...next, updatedAt: stamp() });
 }
 
@@ -443,7 +444,7 @@ export async function restoreGoal(snapshot: import('../schema').Goal) {
 }
 
 export async function patchCatalogItem(kind: CatalogKind, id: string, patch: Partial<Pick<CatalogItem, 'name' | 'emoji' | 'color'>>) {
-  if (patch.name !== undefined && !patch.name.trim()) throw new Error('名称不能为空');
+  if (patch.name !== undefined && !patch.name.trim()) throw new Error(tr("名称不能为空"));
   await table(kind).update(id, { ...patch, updatedAt: stamp() });
 }
 
@@ -478,7 +479,7 @@ export async function mergeDuplicates(kind: CatalogKind): Promise<{ groups: numb
       records.filter((r) => (kind === 'types' ? r.typeId === id : r.tagIds.includes(id))).length;
     const remap = new Map<string, string>();
     let removed = 0;
-    const defaultIdByName = new Map(kind === 'types' ? defaultTypes().map((d) => [d.name, d.id]) : []);
+    const defaultIdByName = kind === 'types' ? DEFAULT_NAME_TO_ID : new Map<string, string>();
     for (const g of groups) {
       const ranked = [...g].sort(
         (a, b) =>
@@ -577,9 +578,9 @@ export async function fillGap(gap: { start: number; end: number }, mode: 'prev' 
     await db.records.where('startMs').between(gap.start - 3 * DAY_MS, gap.end + DAY_MS, true, true).toArray()
   ).filter((r) => !r.deleted);
   const n = gapNeighbors(candidates, gap)[mode];
-  if (!n) throw new Error(mode === 'prev' ? '空档前面没有记录' : '空档后面没有记录');
+  if (!n) throw new Error(mode === 'prev' ? tr("空档前面没有记录") : tr("空档后面没有记录"));
   const row = candidates.find((r) => r.id === n.recId)!;
   const ivs = fillIntervals(row, n, gap, mode, now);
-  if (!ivs) throw new Error('相邻的记录刚刚被修改过，请重试');
+  if (!ivs) throw new Error(tr("相邻的记录刚刚被修改过，请重试"));
   await patchRecord(row.id, { intervals: ivs });
 }

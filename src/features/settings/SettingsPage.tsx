@@ -6,8 +6,9 @@ import { importAtl2 } from '../../io/atl2';
 import { downloadJson, readJsonFile } from '../../io/download';
 import { fileStamp } from '../../lib/time';
 import { SyncSection } from '../../sync/SyncSection';
+import { LANGS, getLang, switchLang, tr, type Lang } from '../../i18n';
 
-const fmt = (c: MergeCount) => `新增 ${c.added}，更新 ${c.updated}`;
+const fmt = (c: MergeCount) => tr("新增 {0}，更新 {1}", c.added, c.updated);
 
 export function SettingsPage() {
   const settings = useSettings();
@@ -35,11 +36,11 @@ export function SettingsPage() {
   return (
     <div className="page settings">
       <header className="page-head">
-        <h1>设置</h1>
+        <h1>{tr("设置")}</h1>
       </header>
 
       <section>
-        <h2>计时</h2>
+        <h2>{tr("计时")}</h2>
         <label className="toggle">
           <input
             type="checkbox"
@@ -47,8 +48,8 @@ export function SettingsPage() {
             onChange={(e) => void updateSettings({ allowConcurrent: e.target.checked })}
           />
           <span>
-            允许多个活动同时计时
-            <small>关闭后，开始一个新活动会自动停止正在进行的活动</small>
+            {tr("允许多个活动同时计时")}
+            <small>{tr("关闭后，开始一个新活动会自动停止正在进行的活动")}</small>
           </span>
         </label>
         <div className="toggle">
@@ -59,9 +60,9 @@ export function SettingsPage() {
             onChange={(e) => void updateSettings({ discardShort: e.target.checked })}
           />
           <span>
-            <label htmlFor="discard-short">自动作废过短的计时</label>
+            <label htmlFor="discard-short">{tr("自动作废过短的计时")}</label>
             <span className="inline-num">
-              停止时不足
+              {tr("停止时不足")}
               <input
                 type="number"
                 inputMode="numeric"
@@ -69,35 +70,50 @@ export function SettingsPage() {
                 max={600}
                 value={discardSeconds(settings)}
                 disabled={!discardEnabled(settings)}
-                aria-label="秒数"
+                aria-label={tr("秒数")}
                 onChange={(e) => {
                   const v = Math.round(Number(e.target.value));
                   if (v >= 1 && v <= 600) void updateSettings({ discardShortSec: v });
                 }}
               />
-              秒的计时直接作废
+              {tr("秒的计时直接作废")}
             </span>
-            <small>防止误触产生的零碎记录。作废时会提示，可以点“恢复”。补录和编辑时间不受影响。</small>
+            <small>{tr("防止误触产生的零碎记录。作废时会提示，可以点“恢复”。补录和编辑时间不受影响。")}</small>
           </span>
         </div>
         <label className="field is-inline">
-          <span className="field-label">每周从哪天开始</span>
+          <span className="field-label">{tr("每周从哪天开始")}</span>
           <select value={settings.weekStart} onChange={(e) => void updateSettings({ weekStart: Number(e.target.value) })}>
-            <option value={1}>周一</option>
-            <option value={0}>周日</option>
+            <option value={1}>{tr("周一")}</option>
+            <option value={0}>{tr("周日")}</option>
           </select>
         </label>
         <p className="hint">
-          <a href="#/catalog">管理活动与标签</a>
+          <a href="#/catalog">{tr("管理活动与标签")}</a>
         </p>
       </section>
 
       <section>
-        <h2>数据</h2>
+        <h2>{tr("语言")} · Langue</h2>
+        <label className="field is-inline">
+          <span className="field-label">{tr("语言")}</span>
+          <select value={getLang()} onChange={(e) => switchLang(e.target.value as Lang)} aria-label="Language">
+            {LANGS.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="hint">{tr("切换后页面会刷新。语言只保存在这台设备上。")}</p>
+      </section>
+
+      <section>
+        <h2>{tr("数据")}</h2>
         <p className="hint">
-          当前本地共有 {counts?.types ?? 0} 个活动、{counts?.tags ?? 0} 个标签、{counts?.records ?? 0} 条记录。
-          {persisted === false && ' 浏览器尚未授予持久存储，清理浏览器数据会丢失记录，请定期导出。'}
-          {persisted === true && ' 浏览器已授予持久存储。'}
+          {tr("当前本地共有 {0} 个活动、{1} 个标签、{2} 条记录。", counts?.types ?? 0, counts?.tags ?? 0, counts?.records ?? 0)}
+          {persisted === false && tr(" 浏览器尚未授予持久存储，清理浏览器数据会丢失记录，请定期导出。")}
+          {persisted === true && tr(" 浏览器已授予持久存储。")}
         </p>
         <div className="row">
           <button
@@ -106,14 +122,14 @@ export function SettingsPage() {
             onClick={() =>
               void run(async () => {
                 downloadJson(await exportBundle(), `timeencre-${fileStamp(Date.now())}.json`);
-                return '已导出备份文件。';
+                return tr("已导出备份文件。");
               })
             }
           >
-            导出备份（JSON）
+            {tr("导出备份（JSON）")}
           </button>
-          <button type="button" className="btn" onClick={() => bundleRef.current?.click()}>导入 TimeEncre 备份</button>
-          <button type="button" className="btn" onClick={() => atlRef.current?.click()}>导入 A Time Logger 2 备份</button>
+          <button type="button" className="btn" onClick={() => bundleRef.current?.click()}>{tr("导入 TimeEncre 备份")}</button>
+          <button type="button" className="btn" onClick={() => atlRef.current?.click()}>{tr("导入 A Time Logger 2 备份")}</button>
         </div>
         <input
           ref={bundleRef}
@@ -126,7 +142,7 @@ export function SettingsPage() {
             if (f)
               void run(async () => {
                 const r = await importBundle(await readJsonFile(f));
-                return `导入完成。活动：${fmt(r.types)}；标签：${fmt(r.tags)}；记录：${fmt(r.records)}。较旧的数据已跳过。`;
+                return tr("导入完成。活动：{0}；标签：{1}；记录：{2}。较旧的数据已跳过。", fmt(r.types), fmt(r.tags), fmt(r.records));
               });
           }}
         />
@@ -142,14 +158,14 @@ export function SettingsPage() {
               void run(async () => {
                 const r = await importAtl2(await readJsonFile(f));
                 const skipped = [
-                  r.existing && `${r.existing} 项已存在`,
-                  r.skipped.groups && `${r.skipped.groups} 个分组`,
-                  r.skipped.deleted && `${r.skipped.deleted} 项已删除`,
-                  r.skipped.goals && `${r.skipped.goals} 个目标（暂不支持导入）`,
+                  r.existing && tr("{0} 项已存在", r.existing),
+                  r.skipped.groups && tr("{0} 个分组", r.skipped.groups),
+                  r.skipped.deleted && tr("{0} 项已删除", r.skipped.deleted),
+                  r.skipped.goals && tr("{0} 个目标（暂不支持导入）", r.skipped.goals),
                 ].filter(Boolean);
                 return (
-                  `已导入 ${r.added.types} 个活动、${r.added.tags} 个标签、${r.added.records} 条记录。` +
-                  (skipped.length ? ` 跳过：${skipped.join('，')}。` : '')
+                  tr("已导入 {0} 个活动、{1} 个标签、{2} 条记录。", r.added.types, r.added.tags, r.added.records) +
+                  (skipped.length ? tr(" 跳过：{0}。", skipped.join(tr("，"))) : '')
                 );
               });
           }}
@@ -164,43 +180,42 @@ export function SettingsPage() {
       <SyncSection />
 
       <section>
-        <h2>应用</h2>
+        <h2>{tr("应用")}</h2>
         {window.isSecureContext ? (
           <p className="hint">
-            可以安装到桌面或手机主屏（浏览器地址栏的“安装”按钮，或手机浏览器菜单里的“添加到主屏幕”），装好后可离线使用。
+            {tr("可以安装到桌面或手机主屏（浏览器地址栏的“安装”按钮，或手机浏览器菜单里的“添加到主屏幕”），装好后可离线使用。")}
           </p>
         ) : (
           <p className="hint">
-            当前是通过 http 地址访问的（比如局域网 IP）。计时、统计和 GitHub 同步都正常，但浏览器不允许在这种页面上安装为 App、离线缓存和在手机上推送通知。
-            需要这些功能时，请通过 HTTPS 域名或 localhost 访问。
+            {tr("当前是通过 http 地址访问的（比如局域网 IP）。计时、统计和 GitHub 同步都正常，但浏览器不允许在这种页面上安装为 App、离线缓存和在手机上推送通知。 需要这些功能时，请通过 HTTPS 域名或 localhost 访问。")}
           </p>
         )}
-        <p className="hint">版本 {__APP_VERSION__}</p>
+        <p className="hint">{tr("版本")} {__APP_VERSION__}</p>
       </section>
 
       <section className="danger-zone">
-        <h2>清空本地数据</h2>
-        <p className="hint">删除这台设备浏览器里的全部活动、标签和记录，无法撤销。仓库设置会保留，之后点同步即可从仓库重新拉取；没有连接仓库的话，请先导出备份。</p>
+        <h2>{tr("清空本地数据")}</h2>
+        <p className="hint">{tr("删除这台设备浏览器里的全部活动、标签和记录，无法撤销。仓库设置会保留，之后点同步即可从仓库重新拉取；没有连接仓库的话，请先导出备份。")}</p>
         <div className="row">
           <input
             value={clearText}
             onChange={(e) => setClearText(e.target.value)}
-            placeholder="输入“清空”以确认"
-            aria-label="输入清空以确认"
+            placeholder={tr("输入“清空”以确认")}
+            aria-label={tr("输入清空以确认")}
           />
           <button
             type="button"
             className="btn is-danger"
-            disabled={clearText !== '清空'}
+            disabled={clearText !== tr("清空")}
             onClick={() =>
               void run(async () => {
                 await clearAllLocalData();
                 setClearText('');
-                return '本地数据已清空。';
+                return tr("本地数据已清空。");
               })
             }
           >
-            清空本地数据
+            {tr("清空本地数据")}
           </button>
         </div>
       </section>

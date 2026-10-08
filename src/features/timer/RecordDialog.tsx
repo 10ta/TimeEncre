@@ -4,6 +4,7 @@ import { TagPicker } from '../../ui/fields';
 import { useTypeMap } from '../../db/hooks';
 import { startRecord } from '../../db/actions';
 import { fromLocalInput, toLocalInput } from '../../lib/time';
+import { tr } from '../../i18n';
 
 /** 长按 / 右键类型格子：带备注、标签或补记开始时间地开始计时 */
 export function RecordDialog(props: { mode: 'start'; typeId: string; onClose: () => void }) {
@@ -22,31 +23,31 @@ function StartDialog({ typeId, onClose }: { typeId: string; onClose: () => void 
 
   const submit = async () => {
     const startMs = fromLocalInput(startInput);
-    if (Number.isNaN(startMs)) return setError('开始时间无效');
-    if (startMs > Date.now() + 60_000) return setError('开始时间不能晚于现在');
+    if (Number.isNaN(startMs)) return setError(tr("开始时间无效"));
+    if (startMs > Date.now() + 60_000) return setError(tr("开始时间不能晚于现在"));
     await startRecord(typeId, { comment: comment.trim(), tagIds, startMs });
     onClose();
   };
 
   return (
     <Modal
-      title={type ? `${type.emoji} 开始${type.name}` : '开始计时'}
+      title={type ? tr("{0} 开始{1}", type.emoji, type.name) : tr("开始计时")}
       onClose={onClose}
       footer={
         <>
           <span className="spacer" />
-          <button type="button" className="btn" onClick={onClose}>取消</button>
-          <button type="button" className="btn is-primary" onClick={submit}>开始计时</button>
+          <button type="button" className="btn" onClick={onClose}>{tr("取消")}</button>
+          <button type="button" className="btn is-primary" onClick={submit}>{tr("开始计时")}</button>
         </>
       }
     >
       <label className="field">
-        <span className="field-label">备注</span>
-        <textarea rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="可选" />
+        <span className="field-label">{tr("备注")}</span>
+        <textarea rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder={tr("可选")} />
       </label>
       <TagPicker value={tagIds} onChange={setTagIds} />
       <div className="field">
-        <span className="field-label">开始于</span>
+        <span className="field-label">{tr("开始于")}</span>
         <div className="row">
           <input type="datetime-local" value={startInput} onChange={(e) => setStartInput(e.target.value)} />
           {QUICK_OFFSETS.map((m) => (
@@ -56,7 +57,7 @@ function StartDialog({ typeId, onClose }: { typeId: string; onClose: () => void 
               className="btn is-small"
               onClick={() => setStartInput(toLocalInput(Date.now() - m * 60_000))}
             >
-              {m} 分钟前
+              {tr("{0} 分钟前", m)}
             </button>
           ))}
         </div>

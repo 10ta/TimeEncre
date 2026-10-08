@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 // 时间工具：存储一律用带时区偏移的 ISO 8601（秒精度），计算一律转毫秒时间戳。
 
 const pad = (n: number, len = 2) => String(n).padStart(len, '0');
@@ -17,7 +18,7 @@ export function toIso(ms: number): string {
 
 export function fromIso(iso: string): number {
   const t = Date.parse(iso);
-  if (Number.isNaN(t)) throw new Error(`无效的时间：${iso}`);
+  if (Number.isNaN(t)) throw new Error(tr("无效的时间：{0}", iso));
   return t;
 }
 

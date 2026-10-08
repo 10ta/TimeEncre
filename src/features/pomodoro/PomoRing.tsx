@@ -4,6 +4,7 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Icon, type IconName } from '../../ui/Icon';
 import type { Phase } from '../../pomodoro/machine';
+import { tr } from '../../i18n';
 
 type Status = 'idle' | 'running' | 'paused';
 type Anim = 'none' | 'complete' | 'rewind';
@@ -106,13 +107,13 @@ export function PomoRing({
         <span className="pomo-time" role="timer">{time}</span>
         <span className="pomo-count">{sub}</span>
         <div className="ring-controls">
-          <Slot show={canReset} icon="reset" text="重置" onClick={act(onReset, true)} />
+          <Slot show={canReset} icon="reset" text={tr("重置")} onClick={act(onReset, true)} />
           {status === 'running' ? (
-            <Slot primary show icon="pause" text="暂停" onClick={onPause} />
+            <Slot primary show icon="pause" text={tr("暂停")} onClick={onPause} />
           ) : (
-            <Slot primary show icon="play" text={status === 'paused' ? '继续' : phase === 'work' ? '开始专注' : '开始休息'} onClick={onStart} />
+            <Slot primary show icon="play" text={status === 'paused' ? tr("继续") : phase === 'work' ? tr("开始专注") : tr("开始休息")} onClick={onStart} />
           )}
-          <Slot show={!idle} icon="stop" text={phase === 'work' ? '结束专注' : '结束休息'} onClick={act(onEnd, true)} />
+          <Slot show={!idle} icon="stop" text={phase === 'work' ? tr("结束专注") : tr("结束休息")} onClick={act(onEnd, true)} />
         </div>
       </div>
     </div>

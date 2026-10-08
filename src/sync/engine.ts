@@ -7,6 +7,7 @@ import { db } from '../db/db';
 import { GitHub, GitHubError, parseRepo } from './github';
 import { applyRemoteFile, buildLocalFiles, gitBlobSha, isOurFile } from './files';
 import { toIso } from '../lib/time';
+import { tr } from '../i18n';
 
 export interface SyncConfig {
   /** "owner/repo" */
@@ -57,7 +58,7 @@ const normDir = (d: string) => d.trim().replace(/^\/+|\/+$/g, '') || DEFAULT_DIR
 
 export function githubFor(cfg: Pick<SyncConfig, 'repo' | 'token'>): GitHub {
   const r = parseRepo(cfg.repo);
-  if (!r) throw new Error('仓库格式应为 owner/repo');
+  if (!r) throw new Error(tr("仓库格式应为 owner/repo"));
   return new GitHub(r.owner, r.repo, cfg.token);
 }
 
@@ -106,7 +107,7 @@ export function syncNow(): Promise<SyncResult> {
 
 async function runSync(): Promise<SyncResult> {
   const cfg = await getSyncConfig();
-  if (!cfg) throw new Error('还没有配置同步');
+  if (!cfg) throw new Error(tr("还没有配置同步"));
   setStatus({ phase: 'syncing' });
   try {
     const gh = githubFor(cfg);
@@ -115,12 +116,12 @@ async function runSync(): Promise<SyncResult> {
       if (r !== 'retry') {
         setStatus({
           phase: 'ok',
-          message: r.pushed || r.pulled ? `拉取 ${r.pulled} 个文件，推送 ${r.pushed} 个文件` : '已是最新',
+          message: r.pushed || r.pulled ? tr("拉取 {0} 个文件，推送 {1} 个文件", r.pulled, r.pushed) : tr("已是最新"),
         });
         return r;
       }
     }
-    throw new Error('同步期间仓库被反复更新，请稍后再试');
+    throw new Error(tr("同步期间仓库被反复更新，请稍后再试"));
   } catch (e) {
     setStatus({ phase: 'error', message: (e as Error).message });
     throw e;
@@ -139,7 +140,7 @@ async function attempt(gh: GitHub, cfg: SyncConfig): Promise<SyncResult | 'retry
   if (head) {
     rootTree = await gh.getCommitTree(head);
     const tree = await gh.getTreeRecursive(rootTree);
-    if (tree.truncated) throw new Error('仓库文件太多，GitHub 返回的目录列表被截断，暂不支持');
+    if (tree.truncated) throw new Error(tr("仓库文件太多，GitHub 返回的目录列表被截断，暂不支持"));
     for (const e of tree.tree) {
       if (e.type !== 'blob' || !e.path.startsWith(prefix)) continue;
       const rel = e.path.slice(prefix.length);
@@ -176,7 +177,7 @@ async function attempt(gh: GitHub, cfg: SyncConfig): Promise<SyncResult | 'retry
   if (!head || !rootTree) {
     // 空仓库 / 分支不存在：先用 Contents API 建第一个文件，下一轮再走正常流程
     const first = changed.find(([rel]) => rel === 'profile.json') ?? changed[0];
-    await gh.putFile(prefix + first[0], first[1], `${dir}: 初始化`, cfg.branch);
+    await gh.putFile(prefix + first[0], first[1], tr("{0}: 初始化", dir), cfg.branch);
     // 记下刚推上去的版本，下一轮不会把它当成“远端变化”再拉一次
     await setSyncState({ ...state, fileShas: { ...state.fileShas, [first[0]]: localShas.get(first[0])! } });
     return 'retry';
@@ -186,7 +187,7 @@ async function attempt(gh: GitHub, cfg: SyncConfig): Promise<SyncResult | 'retry
     changed.map(([rel, content]) => ({ path: prefix + rel, content })),
   );
   const names = changed.map(([rel]) => rel.replace(/^records\//, '').replace(/\.json$/, ''));
-  const commit = await gh.createCommit(`${dir}: 更新 ${names.join(', ')}`, tree.sha, [head]);
+  const commit = await gh.createCommit(tr("{0}: 更新 {1}", dir, names.join(', ')), tree.sha, [head]);
   try {
     await gh.updateRef(cfg.branch, commit.sha);
   } catch (e) {
