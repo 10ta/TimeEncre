@@ -1,11 +1,11 @@
 // 记录表单。LiveRecordForm：原地编辑已有记录，改动即时保存，可撤销本次修改；
 // CreateRecordForm：补录新记录，需要点“添加”。
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { TagPicker } from '../../ui/fields';
 import { IconButton } from '../../ui/Icon';
 import { useAutosave } from '../../ui/useAutosave';
 import { commitAndClose } from '../../ui/commitAndClose';
-import { useTypeMap, useTypes } from '../../db/hooks';
+import { useRecord, useTypeMap, useTypes } from '../../db/hooks';
 import {
   createManualRecord,
   deleteRecord,
@@ -18,6 +18,7 @@ import {
   type IntervalMs,
 } from '../../db/actions';
 import type { TimeRecord } from '../../schema';
+import { fromDb } from '../../db/db';
 import { formatHm, fromIso, fromLocalInput, toLocalInput } from '../../lib/time';
 import { tr } from '../../i18n';
 
@@ -143,7 +144,16 @@ function useOverlapNote() {
 
 // ---------- 原地编辑：即时保存 ----------
 
-export function LiveRecordForm({ rec, onClose }: { rec: TimeRecord; onClose: () => void }) {
+export function LiveRecordForm({
+  rec,
+  onClose,
+  checkOverlapOnMount,
+}: {
+  rec: TimeRecord;
+  onClose: () => void;
+  /** 刚补录完：一打开就检查一次重叠并提示 */
+  checkOverlapOnMount?: boolean;
+}) {
   const [snapshot] = useState(rec);
   const [rows, setRows] = useState(() => rowsFromRecord(rec));
   const [rowsTouched, setRowsTouched] = useState(false);
@@ -152,6 +162,10 @@ export function LiveRecordForm({ rec, onClose }: { rec: TimeRecord; onClose: () 
   const [saved, setSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const overlap = useOverlapNote();
+  useEffect(() => {
+    if (checkOverlapOnMount) void overlap.check(recIntervals(rec), rec.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 别处改了这条记录（例如在横条上停止），而这里没有未保存的改动：跟上
   const sig = JSON.stringify(rec.intervals);
@@ -259,30 +273,36 @@ export function LiveRecordForm({ rec, onClose }: { rec: TimeRecord; onClose: () 
   );
 }
 
-// ---------- 补录：点“添加”才创建 ----------
+// ---------- 补录：点一个活动就建好 ----------
 
+/**
+ * 补录分两步，但都不需要“添加”按钮：
+ *  1. 时间段已预先填好（空档 / 最近一段记录之后），可以先调整；点一个活动，记录立刻创建；
+ *  2. 原地换成与修改已有记录相同的即时编辑表单，继续补备注、标签或调时间。
+ * 没点活动就收起，什么也不会留下。
+ * onCreated：由父组件接管后续（例如列表里让新条目展开），不传则在原地显示编辑表单。
+ */
 export function CreateRecordForm({
   initial,
   onDone,
+  onCreated,
 }: {
-  initial?: { start: number; end: number; typeId?: string };
+  initial?: { start: number; end: number };
   onDone: () => void;
+  onCreated?: (id: string, startMs: number) => void;
 }) {
   const types = useTypes();
-  const [typeId, setTypeId] = useState(initial?.typeId ?? '');
-  const [comment, setComment] = useState('');
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [rows, setRows] = useState<Row[]>(() => {
     const end = initial?.end ?? Math.floor(Date.now() / 60_000) * 60_000;
     const start = initial?.start ?? end - 30 * 60_000;
     return [rowFrom(start, end)];
   });
   const [error, setError] = useState<string | null>(null);
-  const [confirmOverlap, setConfirmOverlap] = useState(false);
-  const overlap = useOverlapNote();
-  const effectiveType = typeId || types?.[0]?.id || '';
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const created = useRecord(createdId ?? '');
 
-  // 从“补录”按钮打开（没有指定空白）时，默认填最近一段记录结束之后的那段时间；用户动过就不再覆盖
+  // 从“补录”按钮打开（没有指定空档）时，默认填最近一段记录结束之后的那段时间；用户动过就不再覆盖
   const rowsTouched = useRef(false);
   useEffect(() => {
     if (initial) return;
@@ -295,47 +315,62 @@ export function CreateRecordForm({
     };
   }, [initial]);
 
-  const submit = async () => {
-    if (!effectiveType) return setError(tr("请先选择活动"));
+  const pick = async (typeId: string) => {
+    if (busy) return;
     const ivs = rowsToIntervals(rows);
     const err = validateIntervals(ivs);
     if (err) return setError(err);
-    if (!confirmOverlap && (await overlap.check(ivs))) return setConfirmOverlap(true);
+    setBusy(true);
     try {
-      await createManualRecord({ typeId: effectiveType, comment: comment.trim(), tagIds, intervals: ivs });
-      onDone();
+      const id = await createManualRecord({ typeId, comment: '', tagIds: [], intervals: ivs });
+      if (onCreated) onCreated(id, ivs[0].start);
+      else setCreatedId(id);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   };
 
+  if (createdId) {
+    if (!created || created.deleted) return null;
+    return <LiveRecordForm key={created.id} rec={fromDb(created)} onClose={onDone} checkOverlapOnMount />;
+  }
+
   return (
     <div className="inline-form">
-      <TypeSelect value={effectiveType} onChange={setTypeId} />
       <IntervalsEditor
         rows={rows}
         onChange={(r) => {
           rowsTouched.current = true;
           setRows(r);
-          setConfirmOverlap(false);
-          overlap.clear();
           setError(null);
         }}
         canAdd
       />
-      <label className="field">
-        <span className="field-label">{tr("备注")}</span>
-        <textarea rows={2} value={comment} placeholder={tr("可选")} onChange={(e) => setComment(e.target.value)} />
-      </label>
-      <TagPicker value={tagIds} onChange={setTagIds} />
-      {overlap.note && <p className="notice is-warn">{overlap.note}</p>}
+      <div className="field">
+        <span className="field-label">{tr("记录为哪个活动")}</span>
+        <div className="pick-grid" role="group" aria-label={tr("记录为哪个活动")}>
+          {types?.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className="pick"
+              style={{ '--c': t.color } as CSSProperties}
+              disabled={busy}
+              onClick={() => void pick(t.id)}
+            >
+              <span className="pick-emoji" aria-hidden="true">{t.emoji}</span>
+              <span className="pick-name">{t.name}</span>
+            </button>
+          ))}
+        </div>
+        <p className="hint">{tr("点一个活动就记录好了；之后可以在这里继续补充备注和标签，改动即时保存。")}</p>
+      </div>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="inline-foot">
         <span className="spacer" />
-        <button type="button" className="btn is-small" onClick={onDone}>{tr("取消")}</button>
-        <button type="button" className="btn is-small is-primary" onClick={() => void submit()}>
-          {confirmOverlap ? tr("仍然添加") : tr("添加")}
-        </button>
+        <button type="button" className="btn is-small" onClick={onDone}>{tr("收起")}</button>
       </div>
     </div>
   );

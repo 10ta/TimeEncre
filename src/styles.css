@@ -2528,10 +2528,6 @@ kbd {
   padding: 0.45rem 0.9rem;
 }
 
-.gap-sheet-or {
-  margin: 0.25rem 0 0.5rem;
-}
-
 /* 日历 / 空档的浮动面板：位置与进行中栏的面板一致，留出底部栏的位置 */
 .floating-sheet-wrap {
   position: fixed;
@@ -2759,4 +2755,52 @@ body.has-dock .floating-sheet-wrap {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--ink-2);
+}
+
+/* ---------- 补录：点活动即记录 ---------- */
+
+.pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 0.45rem;
+}
+
+.pick {
+  display: grid;
+  justify-items: center;
+  gap: 0.1rem;
+  padding: 0.55rem 0.3rem 0.5rem;
+  border: 1px solid var(--line);
+  border-bottom: 3px solid color-mix(in srgb, var(--c) 70%, var(--line));
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.pick:hover {
+  border-color: var(--c);
+  background: color-mix(in srgb, var(--c) 14%, var(--surface));
+}
+
+.pick:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.pick-emoji {
+  font-size: 1.45rem;
+  line-height: 1.2;
+}
+
+.pick-name {
+  font-size: 0.82rem;
+  color: var(--ink-2);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pick {
+    transition: background-color 0.15s, border-color 0.15s;
+  }
 }

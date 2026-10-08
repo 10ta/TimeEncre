@@ -55,7 +55,8 @@ export function HistoryPage() {
     }
   };
   // 日历里点中的色块 / 空档：'rec:<id>' 或 'gap:<开始时间>'
-  const [sheet, setSheet] = useState<{ key: string; rec?: DbRecord; gap?: { start: number; end: number } } | null>(null);
+  // fresh：刚补录完的记录，打开时检查一次重叠
+  const [sheet, setSheet] = useState<{ key: string; recId?: string; fresh?: boolean; gap?: { start: number; end: number } } | null>(null);
 
   // 从统计页“查看这些空白”跳过来：#/history?mode=week&anchor=<ms>&gaps=1
   useEffect(() => {
@@ -180,7 +181,7 @@ export function HistoryPage() {
 
       <Drawer open={openKey === 'new'} onClose={() => setOpenKey(null)}>
         <div className="drawer-card">
-          <CreateRecordForm onDone={() => setOpenKey(null)} />
+          <CreateRecordForm onDone={() => setOpenKey(null)} onCreated={(id, start) => setOpenKey(`${startOfDay(start)}:${id}`)} />
         </div>
       </Drawer>
 
@@ -193,11 +194,22 @@ export function HistoryPage() {
             typeMap={typeMap}
             now={now}
             selectedKey={sheet?.key ?? null}
-            onOpenRecord={(rec) => setSheet((cur) => (cur?.key === `rec:${rec.id}` ? null : { key: `rec:${rec.id}`, rec }))}
+            onOpenRecord={(rec) => setSheet((cur) => (cur?.key === `rec:${rec.id}` ? null : { key: `rec:${rec.id}`, recId: rec.id }))}
             onOpenGap={(gap) => setSheet((cur) => (cur?.key === `gap:${gap.start}` ? null : { key: `gap:${gap.start}`, gap }))}
           />
-          {sheet?.rec && <RecordSheet rec={sheet.rec} records={records} typeMap={typeMap} onClose={() => setSheet(null)} />}
-          {sheet?.gap && <GapSheet gap={sheet.gap} records={records} typeMap={typeMap} onClose={() => setSheet(null)} />}
+          {sheet?.recId && (
+            <RecordSheet key={sheet.recId} recId={sheet.recId} fresh={sheet.fresh} records={records} typeMap={typeMap} onClose={() => setSheet(null)} />
+          )}
+          {sheet?.gap && (
+            <GapSheet
+              key={sheet.gap.start}
+              gap={sheet.gap}
+              records={records}
+              typeMap={typeMap}
+              onClose={() => setSheet(null)}
+              onCreated={(id) => setSheet({ key: `rec:${id}`, recId: id, fresh: true })}
+            />
+          )}
         </>
       ) : (
         <>
@@ -243,7 +255,11 @@ export function HistoryPage() {
                           <GapActions gap={it} records={records} typeMap={typeMap} />
                         </div>
                         <Drawer open={openKey === `gap:${it.start}`} onClose={() => setOpenKey(null)}>
-                          <CreateRecordForm initial={{ start: it.start, end: it.end }} onDone={() => setOpenKey(null)} />
+                          <CreateRecordForm
+                            initial={{ start: it.start, end: it.end }}
+                            onDone={() => setOpenKey(null)}
+                            onCreated={(id, start) => setOpenKey(`${startOfDay(start)}:${id}`)}
+                          />
                         </Drawer>
                       </li>
                     ),
@@ -331,18 +347,20 @@ const hmRange = (g: { start: number; end: number }) => `${hm(g.start)} – ${hm(
 
 /** 日历里点色块：在底部浮出编辑面板（与进行中栏同一种） */
 function RecordSheet({
-  rec,
+  recId,
+  fresh,
   records,
   typeMap,
   onClose,
 }: {
-  rec: DbRecord;
+  recId: string;
+  fresh?: boolean;
   records: DbRecord[];
   typeMap: Map<string, CatalogItem>;
   onClose: () => void;
 }) {
   // 用最新的数据（编辑后列表会刷新）
-  const live = records.find((r) => r.id === rec.id);
+  const live = records.find((r) => r.id === recId);
   if (!live || live.deleted) return null;
   const t = typeMap.get(live.typeId);
   return (
@@ -356,7 +374,7 @@ function RecordSheet({
         </>
       }
     >
-      <LiveRecordForm key={live.id} rec={fromDb(live)} onClose={onClose} />
+      <LiveRecordForm key={live.id} rec={fromDb(live)} onClose={onClose} checkOverlapOnMount={fresh} />
     </FloatingSheet>
   );
 }
@@ -367,11 +385,13 @@ function GapSheet({
   records,
   typeMap,
   onClose,
+  onCreated,
 }: {
   gap: { start: number; end: number };
   records: DbRecord[];
   typeMap: Map<string, CatalogItem>;
   onClose: () => void;
+  onCreated: (id: string) => void;
 }) {
   return (
     <FloatingSheet
@@ -388,8 +408,7 @@ function GapSheet({
       <div className="gap-sheet-actions">
         <GapActions gap={gap} records={records} typeMap={typeMap} onDone={onClose} />
       </div>
-      <p className="field-label gap-sheet-or">{tr("或记录为：")}</p>
-      <CreateRecordForm initial={gap} onDone={onClose} />
+      <CreateRecordForm initial={gap} onDone={onClose} onCreated={onCreated} />
     </FloatingSheet>
   );
 }

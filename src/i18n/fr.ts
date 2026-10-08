@@ -1,5 +1,7 @@
 // 法语词典：键为中文原文，值为法语。由 tests/i18n.test.ts 检查完整性（缺键、多余键、占位符数量）。
 export const fr: Record<string, string> = {
+  "记录为哪个活动": "Enregistrer comme",
+  "点一个活动就记录好了；之后可以在这里继续补充备注和标签，改动即时保存。": "Choisissez une activité et c’est enregistré ; vous pouvez ensuite ajouter une note et des tags ici, enregistrés aussitôt.",
   "活动|字段": "Activité",
   "{0}{1} {2}": "{0} {1} {2}",
   " · 已暂停": " · en pause",
@@ -65,7 +67,6 @@ export const fr: Record<string, string> = {
   "今天": "Aujourd’hui",
   "今天完成 {0} 个番茄": "{0} pomodoros terminés aujourd’hui",
   "今天已完成 {0} 个番茄。{1}": "{0} pomodoros terminés aujourd’hui. {1}",
-  "仍然添加": "Ajouter quand même",
   "从 A Time Logger 2 导入": "Importer depuis A Time Logger 2",
   "从 GitHub 数据仓库恢复": "Restaurer depuis le dépôt GitHub",
   "仓库": "Dépôt",
@@ -167,7 +168,6 @@ export const fr: Record<string, string> = {
   "恢复": "Restaurer",
   "恢复到这次展开编辑之前的样子": "Revenir à l’état d’avant cette modification",
   "或带有这些标签的记录": "Ou enregistrements portant ces tags",
-  "或记录为：": "Ou enregistrer comme :",
   "手机：切换到 emoji 键盘": "Mobile : passez au clavier emoji",
   "打开 app 时、有改动后约一分钟、切到后台时各同步一次": "Au lancement, environ une minute après une modification, et à la mise en arrière-plan",
   "找不到这个仓库，或者令牌没有授权访问它。": "Dépôt introuvable, ou le jeton n’y a pas accès.",
@@ -307,7 +307,6 @@ export const fr: Record<string, string> = {
   "设置": "Réglages",
   "该休息一下了。": "C’est l’heure d’une pause.",
   "语言": "Langue",
-  "请先选择活动": "Choisissez d’abord une activité",
   "请先重置当前的 Pomo": "Réinitialisez d’abord le Pomo en cours",
   "请填写令牌": "Saisissez le jeton",
   "请填写名称": "Saisissez un nom",
