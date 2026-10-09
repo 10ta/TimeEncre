@@ -7,6 +7,7 @@ import { TypeGrid } from './TypeGrid';
 import { TodayStrip } from './TodayStrip';
 import { RecordDialog } from './RecordDialog';
 import { TodayGoals } from '../goals/TodayGoals';
+import { TodayKeep } from '../keep/TodayKeep';
 import { tr } from '../../i18n';
 
 export function TimerPage() {
@@ -29,7 +30,10 @@ export function TimerPage() {
         </p>
       )}
       <TypeGrid types={types} actives={actives} onOptions={setOptionsFor} />
-      <TodayGoals />
+      <div className="home-pair">
+        <TodayGoals />
+        <TodayKeep />
+      </div>
       <TodayStrip />
       {optionsFor && <RecordDialog mode="start" typeId={optionsFor} onClose={() => setOptionsFor(null)} />}
     </div>

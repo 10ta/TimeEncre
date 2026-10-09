@@ -109,6 +109,23 @@ export function clockRange(start: number, end: number | string, sep = '–'): st
   return `${clockText(start)}${sep}${clockText(end)}`;
 }
 
+/** 可能跨天的时段：同一天时同 clockRange；跨天时带上日期 “10/2 23:00 – 10/3 07:10” */
+export function spanText(start: number, end: number | string): string {
+  if (typeof end === 'string' || zparts(start).d === zparts(end).d && end - start < 86_400_000) return clockRange(start, end);
+  return `${shortDate(start)} ${clockText(start)} – ${shortDate(end)} ${clockText(end)}`;
+}
+
+/** 预约之类的时段：不是今天的带上日期 */
+export function slotText(start: number, end: number, now: number): string {
+  const text = spanText(start, end);
+  if (text.includes('/') || dayOfMonthKey(start) === dayOfMonthKey(now)) return text;
+  return `${shortDate(start)} ${text}`;
+}
+const dayOfMonthKey = (ms: number) => {
+  const p = zparts(ms);
+  return p.y * 10000 + p.m * 100 + p.d;
+};
+
 /** 时间轴刻度：一天中的第 h 点（0–24）。24 小时制 “9:00”；12 小时制 “上午9时” / “9 AM” */
 export function hourLabel(h: number): string {
   if (!getHour12()) return `${h}:00`;

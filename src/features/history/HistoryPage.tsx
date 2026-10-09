@@ -12,10 +12,11 @@ import { CreateRecordForm, LiveRecordForm } from '../records/RecordForms';
 import { Drawer } from '../../ui/Drawer';
 import { FloatingSheet } from '../../ui/FloatingSheet';
 import { GAP_MIN_MS } from '../../lib/gaps';
-import { CalendarView, dayGaps } from './CalendarView';
+import { CalendarView, dayGaps, type Plan } from './CalendarView';
+import { slotMs, useKeepItems, useKeepLists } from '../keep/model';
 import { GapActions } from './GapActions';
 import { tr } from '../../i18n';
-import { clockRange } from '../../i18n/dates';
+import { clockRange, spanText } from '../../i18n/dates';
 
 type View = 'calendar' | 'list';
 const VIEW_KEY = 'timeencre.historyView';
@@ -53,7 +54,9 @@ export function HistoryPage() {
   };
   // 日历里点中的色块 / 空档：'rec:<id>' 或 'gap:<开始时间>'
   // fresh：刚补录完的记录，打开时检查一次重叠
-  const [sheet, setSheet] = useState<{ key: string; recId?: string; fresh?: boolean; gap?: { start: number; end: number } } | null>(null);
+  const [sheet, setSheet] = useState<{ key: string; recId?: string; fresh?: boolean; gap?: { start: number; end: number }; plan?: Plan } | null>(null);
+  const keepLists = useKeepLists();
+  const keepItems = useKeepItems();
 
   // 从统计页“查看这些空白”跳过来：#/history?mode=week&anchor=<ms>&gaps=1
   useEffect(() => {
@@ -123,6 +126,14 @@ export function HistoryPage() {
   const calendarMode = mode !== 'month';
   const showCalendar = calendarMode && view === 'calendar';
   const calDays = daysIn(range.from, range.to);
+  // Keep 里与这段时间有交集的预约
+  const lm = new Map((keepLists ?? []).map((l) => [l.id, l]));
+  const plans: Plan[] = (keepItems ?? []).flatMap((it) => {
+    const s = slotMs(it);
+    const l = lm.get(it.listId);
+    if (!s || !l || s.end <= range.from || s.start >= range.to) return [];
+    return [{ id: it.id, text: it.text, color: l.color, start: s.start, end: s.end, done: it.done }];
+  });
   const calGaps = q ? new Map<number, { start: number; end: number }[]>() : dayGaps(byDay, calDays, now, (sp, f, t) => (Math.max(f, gapFloor) < t ? gaps(sp, Math.max(f, gapFloor), t, GAP_MIN_MS) : []));
 
   return (
@@ -191,19 +202,29 @@ export function HistoryPage() {
             typeMap={typeMap}
             now={now}
             selectedKey={sheet?.key ?? null}
+            gapFloor={gapFloor === Infinity ? Date.now() : gapFloor}
+            canNext={range.to <= now}
+            onFlip={(dir) => setAnchor((a) => shiftAnchor(mode, a, dir))}
             onOpenRecord={(rec) => setSheet((cur) => (cur?.key === `rec:${rec.id}` ? null : { key: `rec:${rec.id}`, recId: rec.id }))}
             onOpenGap={(gap) => setSheet((cur) => (cur?.key === `gap:${gap.start}` ? null : { key: `gap:${gap.start}`, gap }))}
+            plans={q ? [] : plans}
+            onOpenPlan={(p) => {
+              // 将来的预约还不能补录：去 Keep 里看它
+              if (p.start > Date.now()) location.hash = `#/keep?item=${p.id}`;
+              else setSheet({ key: `plan:${p.id}`, gap: { start: p.start, end: Math.min(p.end, Date.now()) }, plan: p });
+            }}
           />
           <p className="cal-hint">
-            {tr("拖动色块的上下边缘调整时间，拖动中间整段平移；在空档里拖出一段可以只补录这一段。触屏上：点一下选中后拖动，再点一下打开编辑。")}
+            {tr("拖动色块的上下边缘调整时间，拖动中间整段平移，可以拖到别的日子；在空档里拖出一段可以只补录这一段。拖到日历边缘停一下会翻到前 / 后一天（周视图为一周）。触屏上：点一下选中后拖动，再点一下打开编辑。")}
           </p>
           {sheet?.recId && (
             <RecordSheet key={sheet.recId} recId={sheet.recId} fresh={sheet.fresh} records={records} typeMap={typeMap} onClose={() => setSheet(null)} />
           )}
           {sheet?.gap && (
             <GapSheet
-              key={sheet.gap.start}
+              key={sheet.key}
               gap={sheet.gap}
+              plan={sheet.plan}
               records={records}
               typeMap={typeMap}
               onClose={() => setSheet(null)}
@@ -343,7 +364,7 @@ function Entry({
   );
 }
 
-const hmRange = (g: { start: number; end: number }) => clockRange(g.start, g.end, ' – ');
+const hmRange = (g: { start: number; end: number }) => spanText(g.start, g.end);
 
 /** 日历里点色块：在底部浮出编辑面板（与进行中栏同一种） */
 function RecordSheet({
@@ -382,12 +403,15 @@ function RecordSheet({
 /** 日历里点空档：快捷填充，或记录为某个活动 */
 function GapSheet({
   gap,
+  plan,
   records,
   typeMap,
   onClose,
   onCreated,
 }: {
   gap: { start: number; end: number };
+  /** 从预约框打开：按预约的时间段补录 */
+  plan?: Plan;
   records: DbRecord[];
   typeMap: Map<string, CatalogItem>;
   onClose: () => void;
@@ -398,16 +422,18 @@ function GapSheet({
       onClose={onClose}
       head={
         <>
-          <strong>{tr("未记录")}</strong>
+          <strong>{plan ? tr("按预约补录：{0}", plan.text || '…') : tr("未记录")}</strong>
           <span className="gap-sheet-range">
             {hmRange(gap)} · {formatHm(gap.end - gap.start)}
           </span>
         </>
       }
     >
-      <div className="gap-sheet-actions">
-        <GapActions gap={gap} records={records} typeMap={typeMap} onDone={onClose} />
-      </div>
+      {!plan && (
+        <div className="gap-sheet-actions">
+          <GapActions gap={gap} records={records} typeMap={typeMap} onDone={onClose} />
+        </div>
+      )}
       <CreateRecordForm initial={gap} onDone={onClose} onCreated={onCreated} />
     </FloatingSheet>
   );

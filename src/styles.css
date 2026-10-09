@@ -192,13 +192,20 @@ textarea {
   }
   .nav ul {
     grid-auto-flow: column;
-    grid-auto-columns: 1fr;
+    grid-auto-columns: minmax(0, 1fr);
   }
   .nav li > a {
     flex-direction: column;
     gap: 0;
     padding: 0.35rem 0;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
+  }
+  /* 七个入口挤在一行：长的标签（法语）截断，不撑出屏幕 */
+  .nav-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .nav-icon {
     font-size: 1.2rem;
@@ -2212,10 +2219,24 @@ kbd {
 
 /* ---------- 首页目标 ---------- */
 
-.today-goals {
+/* 目标和 Keep 并排（顶部对齐）；只有一个时占满整行；窄屏上下排 */
+.home-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+  align-items: start;
+  gap: 1.5rem 2.5rem;
   margin-top: 2.5rem;
   padding-top: 1.5rem;
   border-top: 1px solid var(--line);
+}
+
+.home-pair:empty {
+  display: none;
+}
+
+.today-goals {
+  container-type: inline-size;
+  min-width: 0;
 }
 
 .today-goals .today-head {
@@ -2278,6 +2299,21 @@ kbd {
 .tg .goal-status {
   justify-self: start;
   white-space: nowrap;
+}
+
+/* 和 Keep 并排时变窄：按容器宽度换成两行的紧凑排法 */
+@container (max-width: 40rem) {
+  .tg {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'title num status'
+      'bar bar bar';
+    gap: 0.3rem 0.75rem;
+  }
+  .tg-title { grid-area: title; }
+  .tg-bar { grid-area: bar; }
+  .tg-num { grid-area: num; }
+  .tg .goal-status { grid-area: status; }
 }
 
 @media (max-width: 759px) {
@@ -2729,7 +2765,7 @@ body.has-dock .floating-sheet-wrap {
 
 .cal-gap {
   left: 2px;
-  right: 2px;
+  right: calc(var(--plan-w, 0%) + 2px);
   border: 1px dashed color-mix(in srgb, var(--muted) 55%, transparent);
   background: repeating-linear-gradient(
     -45deg,
@@ -2955,7 +2991,7 @@ body.has-dock .floating-sheet-wrap {
 .cal-select {
   position: absolute;
   left: 2px;
-  right: 2px;
+  right: calc(var(--plan-w, 0%) + 2px);
   z-index: 4;
   border: 2px solid var(--accent);
   border-radius: 4px;
@@ -2995,4 +3031,652 @@ body.has-dock .floating-sheet-wrap {
 
 .tz-select {
   max-width: min(22rem, 100%);
+}
+
+/* ---------- 跨天拖动 ---------- */
+
+.cal {
+  position: relative;
+}
+
+/* 拖动中：原来的位置留一个淡影，预览单独画（可能跨好几天） */
+.cal-block.is-origin {
+  opacity: 0.35;
+  outline: 1px dashed var(--c);
+  outline-offset: -1px;
+}
+
+span.cal-block.is-dragging {
+  pointer-events: none;
+}
+
+/* 停在边缘翻页的提示：底色从左到右填满即翻页 */
+.cal-flip {
+  position: absolute;
+  z-index: 6;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--surface);
+  background: linear-gradient(90deg, var(--accent) 50%, color-mix(in srgb, var(--accent) 45%, transparent) 50%) right / 200% 100%;
+  animation: cal-flip-fill var(--hold, 600ms) linear forwards;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+@keyframes cal-flip-fill {
+  to {
+    background-position: left;
+  }
+}
+
+.cal.is-week .cal-flip {
+  top: 3rem;
+}
+.cal.is-week .cal-flip.is-prev {
+  left: 0.5rem;
+}
+.cal.is-week .cal-flip.is-next {
+  right: 0.5rem;
+}
+.cal.is-day .cal-flip {
+  left: 50%;
+  transform: translateX(-50%);
+}
+.cal.is-day .cal-flip.is-prev {
+  top: 0.5rem;
+}
+.cal.is-day .cal-flip.is-next {
+  bottom: 0.5rem;
+}
+
+
+/* ---------- Keep ---------- */
+
+.keep-page .page-head {
+  align-items: center;
+}
+
+.keep-empty {
+  max-width: 34rem;
+  color: var(--ink-2);
+}
+
+.keep-cols {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.keep-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.keep-card {
+  --tint: color-mix(in srgb, var(--c) 16%, var(--surface));
+  position: relative;
+  padding: 0.6rem 0.6rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--c) 35%, var(--line));
+  border-radius: var(--r-md);
+  background: var(--tint);
+}
+
+.keep-card.is-dragging {
+  opacity: 0.45;
+}
+
+.keep-card.is-drop-before::before,
+.keep-card.is-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.keep-card.is-drop-before::before {
+  top: -0.6rem;
+}
+.keep-card.is-drop-after::after {
+  bottom: -0.6rem;
+}
+
+.keep-head {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-bottom: 0.25rem;
+}
+
+.keep-card input.keep-title {
+  flex: 1;
+  min-width: 0;
+  padding: 0.3rem 0.35rem;
+  border: 1px solid transparent;
+  background: transparent;
+  font-weight: 600;
+  font-size: 1.02rem;
+  letter-spacing: 0.01em;
+}
+
+.keep-card input.keep-title:hover,
+.keep-card input.keep-title:focus {
+  border-color: color-mix(in srgb, var(--c) 40%, var(--line));
+  background: var(--surface);
+}
+
+.keep-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.keep-icon:hover {
+  background: color-mix(in srgb, var(--c, var(--accent)) 18%, transparent);
+  color: var(--ink);
+}
+
+.keep-icon.is-on {
+  color: var(--c);
+}
+
+.keep-menu-wrap {
+  position: relative;
+}
+
+.keep-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  min-width: 13rem;
+  padding: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
+  display: grid;
+  gap: 0.2rem;
+}
+
+.keep-swatches {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
+  padding: 0.2rem 0.2rem 0.45rem;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 0.2rem;
+}
+
+.swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.swatch.is-on {
+  border-color: var(--ink);
+}
+
+.keep-menu-item {
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.keep-menu-item:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.keep-menu-item:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.keep-menu-item.is-danger {
+  color: var(--danger);
+}
+
+.keep-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.keep-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 22px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.15rem;
+  padding: 0.1rem 0;
+  border-radius: var(--r-sm);
+}
+
+.keep-item.is-flash {
+  animation: keep-flash 2.4s ease-out;
+}
+
+@keyframes keep-flash {
+  0%,
+  40% {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.keep-item.is-dragging {
+  opacity: 0.35;
+}
+
+.keep-item.is-drop-before::before,
+.keep-drop {
+  content: '';
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.keep-item.is-drop-before::before {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -2px;
+}
+
+.keep-grip {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  color: var(--muted);
+  opacity: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.keep-grip svg {
+  width: 14px;
+  height: 14px;
+}
+
+.keep-item:hover .keep-grip,
+.keep-head:hover .keep-grip,
+.keep-grip:focus-visible {
+  opacity: 0.8;
+}
+
+.keep-grip.is-list {
+  width: 18px;
+}
+
+.keep-grip.is-blank {
+  cursor: default;
+}
+
+@media (pointer: coarse) {
+  .keep-grip {
+    opacity: 0.55;
+  }
+}
+
+.keep-check {
+  width: 17px;
+  height: 17px;
+  margin: 6px 0 0;
+  accent-color: var(--c, var(--accent));
+  cursor: pointer;
+}
+
+.keep-body {
+  min-width: 0;
+}
+
+.keep-text {
+  display: block;
+  width: 100%;
+  padding: 0.3rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.45;
+}
+
+.keep-text:hover,
+.keep-text:focus {
+  border-color: color-mix(in srgb, var(--c) 40%, var(--line));
+  background: var(--surface);
+}
+
+.keep-item.is-done .keep-text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.keep-tools {
+  display: flex;
+  opacity: 0;
+}
+
+.keep-item:hover .keep-tools,
+.keep-item:focus-within .keep-tools {
+  opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .keep-tools {
+    opacity: 0.7;
+  }
+}
+
+.keep-tools .keep-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.keep-add {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  margin-top: 0.1rem;
+  color: var(--muted);
+}
+
+.keep-add svg {
+  justify-self: center;
+  width: 16px;
+  height: 16px;
+}
+
+.keep-card .keep-add input {
+  padding: 0.35rem;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.keep-card .keep-add input:focus {
+  border-color: color-mix(in srgb, var(--c) 40%, var(--line));
+  background: var(--surface);
+}
+
+.keep-done {
+  margin-top: 0.4rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid color-mix(in srgb, var(--c) 30%, var(--line));
+}
+
+.keep-done-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.4rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.keep-done-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 预约时间：还没开始 / 已经开始 / 已经过期 / 已完成，颜色和字样都不同 */
+.slot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.1rem 0 0.2rem 0.3rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+button.slot-chip {
+  cursor: pointer;
+}
+
+.slot-chip svg {
+  width: 12px;
+  height: 12px;
+}
+
+.slot-word {
+  font-weight: 700;
+}
+
+.slot-chip.is-started {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--surface);
+}
+
+.slot-chip.is-overdue {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--danger);
+}
+
+.slot-chip.is-done {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.slot-editor {
+  margin: 0.3rem 0 0.4rem;
+  padding: 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  display: grid;
+  gap: 0.45rem;
+}
+
+.slot-row {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.slot-row .iv-sep {
+  display: none;
+}
+
+.keep-ghost {
+  position: fixed;
+  z-index: 50;
+  max-width: 16rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--r-sm);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.25);
+}
+
+.keep-page.is-dragging,
+.keep-page.is-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+/* ---------- 首页的 Keep ---------- */
+
+.today-keep {
+  min-width: 0;
+}
+
+.tk-block + .tk-block {
+  margin-top: 1rem;
+}
+
+.tk-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.tk-dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--c);
+}
+
+.tk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.tk-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.55rem;
+  padding: 0.3rem 0.5rem;
+  border-left: 3px solid transparent;
+  border-radius: var(--r-sm);
+}
+
+.tk-item .keep-check {
+  margin: 0;
+}
+
+.tk-text {
+  flex: 1 1 8rem;
+  min-width: 0;
+  color: var(--ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.tk-text:hover {
+  text-decoration: underline;
+}
+
+.tk-list-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.tk-item .slot-chip {
+  margin: 0;
+}
+
+/* 已经开始：蓝色底条；已经过期：红色底条 */
+.tk-item.is-started {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tk-item.is-overdue {
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+}
+
+.tk-item.is-done .tk-text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.tk-more {
+  display: inline-block;
+  margin: 0.2rem 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.today-keep input.tk-add {
+  margin-top: 0.3rem;
+  padding: 0.35rem 0.5rem;
+  border-style: dashed;
+  background: transparent;
+  font-size: 0.9rem;
+}
+
+/* 日历里的预约（Keep）：右侧的虚线框，和记录并排；点了按这个时间段补录 */
+.cal-plan {
+  position: absolute;
+  z-index: 1;
+  overflow: hidden;
+  padding: 0.1rem 0.3rem;
+  border: 1.5px dashed var(--c);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--c) 9%, transparent);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cal-plan:hover {
+  background: color-mix(in srgb, var(--c) 20%, transparent);
+  z-index: 3;
+}
+
+.cal-plan.is-done {
+  opacity: 0.55;
+}
+
+.cal-plan.is-done .cal-plan-text {
+  text-decoration: line-through;
+}
+
+.cal-plan-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.cal.is-dragging .cal-plan {
+  pointer-events: none;
 }

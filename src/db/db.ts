@@ -1,6 +1,6 @@
 // 本地数据库（IndexedDB）。P1 阶段它是唯一存储；P2 起作为 GitHub 数据仓库的本地副本。
 import Dexie, { type EntityTable, type Table } from 'dexie';
-import type { CatalogItem, Goal, TimeRecord } from '../schema';
+import type { CatalogItem, Goal, KeepItem, KeepList, TimeRecord } from '../schema';
 import { fromIso } from '../lib/time';
 
 /** 记录在本地多存三个派生字段用于建索引，导出时剥掉 */
@@ -21,6 +21,8 @@ class TimeEncreDb extends Dexie {
   goals!: EntityTable<Goal, 'id'>;
   records!: EntityTable<DbRecord, 'id'>;
   meta!: Table<MetaRow, string>;
+  keepLists!: EntityTable<KeepList, 'id'>;
+  keepItems!: EntityTable<KeepItem, 'id'>;
 
   constructor() {
     super('timeencre');
@@ -45,6 +47,8 @@ class TimeEncreDb extends Dexie {
             r.month = fileMonth(r.intervals[0].start);
           }),
       );
+    // v3：Keep 的清单与条目
+    this.version(3).stores({ ...stores, keepLists: 'id, order', keepItems: 'id, listId, order' });
   }
 }
 

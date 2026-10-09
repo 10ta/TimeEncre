@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import { describe, expect, it } from 'vitest';
 
-describe('IndexedDB v1 → v2', () => {
+describe('IndexedDB v1 → 当前版本', () => {
   it('重算 month，其余字段不变', async () => {
     await Dexie.delete('timeencre');
     const old = new Dexie('timeencre');
@@ -20,7 +20,7 @@ describe('IndexedDB v1 → v2', () => {
 
     const { db } = await import('../src/db/db');
     const r = (await db.records.get('r1'))!;
-    expect(db.verno).toBe(2);
+    expect(db.verno).toBe(3);
     expect(r.month).toBe('2026-10');
     expect(r.comment).toBe('x');
     expect(await db.records.where('month').equals('2026-10').count()).toBe(1);

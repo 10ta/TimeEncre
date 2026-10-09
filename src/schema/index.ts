@@ -10,6 +10,9 @@ import {
   BundleFileV1,
   CatalogItemV1,
   GoalV1,
+  KeepFileV1,
+  KeepItemV1,
+  KeepListV1,
   ProfileFileV1,
   RecordV1,
   RecordsFileV1,
@@ -30,6 +33,9 @@ export type Settings = z.infer<typeof SettingsV1>;
 export type ProfileFile = z.infer<typeof ProfileFileV1>;
 export type RecordsFile = z.infer<typeof RecordsFileV1>;
 export type BundleFile = z.infer<typeof BundleFileV1>;
+export type KeepList = z.infer<typeof KeepListV1>;
+export type KeepItem = z.infer<typeof KeepItemV1>;
+export type KeepFile = z.infer<typeof KeepFileV1>;
 
 type AnyFile = { schemaVersion: number; kind: string; [k: string]: unknown };
 
@@ -74,3 +80,4 @@ export function migrateFile(raw: unknown): AnyFile {
 export const parseBundle = (raw: unknown): BundleFile => BundleFileV1.parse(migrateFile(raw));
 export const parseProfileFile = (raw: unknown): ProfileFile => ProfileFileV1.parse(migrateFile(raw));
 export const parseRecordsFile = (raw: unknown): RecordsFile => RecordsFileV1.parse(migrateFile(raw));
+export const parseKeepFile = (raw: unknown): KeepFile => KeepFileV1.parse(migrateFile(raw));

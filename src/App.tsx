@@ -6,6 +6,7 @@ import { SettingsPage } from './features/settings/SettingsPage';
 import { HistoryPage } from './features/history/HistoryPage';
 import { StatsPage } from './features/stats/StatsPage';
 import { GoalsPage } from './features/goals/GoalsPage';
+import { KeepPage } from './features/keep/KeepPage';
 import { PomodoroPage } from './features/pomodoro/PomodoroPage';
 import { PomodoroRunner } from './pomodoro/PomodoroRunner';
 import { UpdatePrompt } from './ui/UpdatePrompt';
@@ -21,6 +22,7 @@ const NAV = [
   { key: 'history', label: tr("历史"), icon: '🗂️' },
   { key: 'stats', label: tr("统计"), icon: '📊' },
   { key: 'goals', label: tr("目标"), icon: '🎯' },
+  { key: 'keep', label: 'Keep', icon: '📝' },
   { key: 'catalog', label: tr("类型"), icon: '🏷️', wideOnly: true },
   { key: 'settings', label: tr("设置"), icon: '⚙️' },
 ] as const;
@@ -58,6 +60,8 @@ function Page({ route }: { route: RouteKey }) {
       return <StatsPage />;
     case 'goals':
       return <GoalsPage />;
+    case 'keep':
+      return <KeepPage />;
   }
 }
 

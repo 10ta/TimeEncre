@@ -356,9 +356,9 @@ export async function seedDefaultTypes() {
 /** 清空本地数据，但保留同步配置（仓库、令牌），方便清空后重新从仓库拉取。
  *  同步状态必须一起清掉，否则下次同步会把“空”当成本地修改推上去。 */
 export async function clearAllLocalData() {
-  await db.transaction('rw', [db.types, db.tags, db.goals, db.records, db.meta], async () => {
+  await db.transaction('rw', [db.types, db.tags, db.goals, db.records, db.meta, db.keepLists, db.keepItems], async () => {
     const keep = await db.meta.get('syncConfig');
-    await Promise.all([db.types.clear(), db.tags.clear(), db.goals.clear(), db.records.clear(), db.meta.clear()]);
+    await Promise.all([db.types.clear(), db.tags.clear(), db.goals.clear(), db.records.clear(), db.meta.clear(), db.keepLists.clear(), db.keepItems.clear()]);
     if (keep) await db.meta.put(keep);
   });
 }
@@ -583,4 +583,31 @@ export async function fillGap(gap: { start: number; end: number }, mode: 'prev' 
   const ivs = fillIntervals(row, n, gap, mode, now);
   if (!ivs) throw new Error(tr("相邻的记录刚刚被修改过，请重试"));
   await patchRecord(row.id, { intervals: ivs });
+}
+
+/**
+ * 包含时间点 t 的最大未记录区间（日历里跨天拖选空档时用）。
+ * 不早于 floor（第一条记录之前不算空档）、不晚于 now，前后各最多看 14 天；t 落在某条记录里时返回 null。
+ */
+export async function freeSpanAround(t: number, now: number, floor: number): Promise<{ start: number; end: number } | null> {
+  const lo = Math.max(floor, t - 14 * DAY_MS);
+  const hi = Math.min(now, t + 14 * DAY_MS);
+  if (!(lo <= t && t <= hi)) return null;
+  const [recent, active] = await Promise.all([
+    db.records.where('startMs').between(lo - 7 * DAY_MS, hi, true, true).toArray(),
+    db.records.where('active').equals(1).toArray(),
+  ]);
+  let start = lo;
+  let end = hi;
+  for (const r of [...recent, ...active]) {
+    if (r.deleted) continue;
+    for (const iv of r.intervals) {
+      const s = fromIso(iv.start);
+      const e = iv.end ? fromIso(iv.end) : now;
+      if (s < t && e > t) return null;
+      if (e <= t) start = Math.max(start, e);
+      if (s >= t) end = Math.min(end, s);
+    }
+  }
+  return end > start ? { start, end } : null;
 }

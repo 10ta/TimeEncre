@@ -171,7 +171,8 @@ export function SettingsPage() {
             if (f)
               void run(async () => {
                 const r = await importBundle(await readJsonFile(f));
-                return tr("导入完成。活动：{0}；标签：{1}；记录：{2}。较旧的数据已跳过。", fmt(r.types), fmt(r.tags), fmt(r.records));
+                const keep = r.keep.added + r.keep.updated > 0 ? tr("Keep：{0}。", fmt(r.keep)) : '';
+                return tr("导入完成。活动：{0}；标签：{1}；记录：{2}。较旧的数据已跳过。", fmt(r.types), fmt(r.tags), fmt(r.records)) + keep;
               });
           }}
         />

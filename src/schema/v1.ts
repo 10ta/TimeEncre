@@ -80,6 +80,42 @@ export const SettingsV1 = z.looseObject({
   pomodoro: PomodoroV1,
 });
 
+// ---------- Keep：清单与条目 ----------
+
+/** 一个清单（卡片）。标题是用户自己写的任意文字 */
+export const KeepListV1 = z.looseObject({
+  ...base,
+  name: z.string().default(''),
+  color: HexColor,
+  order: z.number(),
+  pinned: z.boolean().default(false),
+});
+
+/** 预约时间段：在所选时区里显示；只是计划，不是计时记录 */
+export const KeepSlotV1 = z.looseObject({
+  start: IsoTime,
+  end: IsoTime,
+});
+
+/** 清单里的一个条目 */
+export const KeepItemV1 = z.looseObject({
+  ...base,
+  listId: z.string(),
+  text: z.string().default(''),
+  done: z.boolean().default(false),
+  doneAt: IsoTime.nullable().default(null),
+  order: z.number(),
+  slot: KeepSlotV1.nullable().default(null),
+});
+
+/** 仓库中的 TimeEncre/keep.json */
+export const KeepFileV1 = z.looseObject({
+  schemaVersion: z.literal(1),
+  kind: z.literal('keep'),
+  lists: z.array(KeepListV1),
+  items: z.array(KeepItemV1),
+});
+
 /** 仓库中的 TimeEncre/profile.json */
 export const ProfileFileV1 = z.looseObject({
   schemaVersion: z.literal(1),
@@ -96,6 +132,9 @@ export const RecordsFileV1 = z.looseObject({
   kind: z.literal('records'),
   month: z.string().regex(/^\d{4}-\d{2}$/),
   records: z.array(RecordV1),
+  /** v1 内的增量字段：旧备份没有 */
+  keepLists: z.array(KeepListV1).default([]),
+  keepItems: z.array(KeepItemV1).default([]),
 });
 
 /** 手动导出 / 导入用的单文件备份 */
@@ -109,4 +148,7 @@ export const BundleFileV1 = z.looseObject({
   goals: z.array(GoalV1),
   settings: SettingsV1,
   records: z.array(RecordV1),
+  /** v1 内的增量字段：旧备份没有 */
+  keepLists: z.array(KeepListV1).default([]),
+  keepItems: z.array(KeepItemV1).default([]),
 });

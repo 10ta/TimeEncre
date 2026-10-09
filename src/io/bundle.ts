@@ -6,12 +6,14 @@ import { CURRENT_SCHEMA_VERSION, parseBundle, type BundleFile } from '../schema'
 import { fromIso, toIso } from '../lib/time';
 
 export async function exportBundle(): Promise<BundleFile> {
-  const [types, tags, goals, records, settings] = await Promise.all([
+  const [types, tags, goals, records, settings, keepLists, keepItems] = await Promise.all([
     db.types.orderBy('order').toArray(),
     db.tags.orderBy('order').toArray(),
     db.goals.toArray(),
     db.records.orderBy('startMs').toArray(),
     getSettings(),
+    db.keepLists.orderBy('order').toArray(),
+    db.keepItems.orderBy('order').toArray(),
   ]);
   // 墓碑（deleted: true）也一并导出，合并时才能正确传播删除
   return {
@@ -24,6 +26,8 @@ export async function exportBundle(): Promise<BundleFile> {
     goals,
     settings,
     records: records.map(fromDb),
+    keepLists,
+    keepItems,
   };
 }
 
@@ -68,20 +72,24 @@ export interface BundleImportReport {
   tags: MergeCount;
   goals: MergeCount;
   records: MergeCount;
+  keep: MergeCount;
   settingsUpdated: boolean;
 }
 
 export async function importBundle(raw: unknown): Promise<BundleImportReport> {
   const b = parseBundle(raw);
-  return db.transaction('rw', [db.types, db.tags, db.goals, db.records, db.meta], async () => {
+  return db.transaction('rw', [db.types, db.tags, db.goals, db.records, db.meta, db.keepLists, db.keepItems], async () => {
     const id = <T,>(x: T) => x;
     const types = await mergeLww(db.types, b.types, id);
     const tags = await mergeLww(db.tags, b.tags, id);
     const goals = await mergeLww(db.goals, b.goals, id);
     const records = await mergeLww(db.records, b.records, toDb);
+    const kl = await mergeLww(db.keepLists, b.keepLists, id);
+    const ki = await mergeLww(db.keepItems, b.keepItems, id);
+    const keep = { added: kl.added + ki.added, updated: kl.updated + ki.updated, kept: kl.kept + ki.kept };
     const cur = await getSettings();
     const settingsUpdated = fromIso(b.settings.updatedAt) > fromIso(cur.updatedAt);
     if (settingsUpdated) await putSettingsRaw(b.settings);
-    return { types, tags, goals, records, settingsUpdated };
+    return { types, tags, goals, records, keep, settingsUpdated };
   });
 }
