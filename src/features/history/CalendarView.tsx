@@ -14,19 +14,16 @@ import { addDays, formatHm, fromIso, startOfDay, type Span } from '../../lib/tim
 import { dragIntervals, gapSelection, MIN_SPAN_MS, snapTime, type DragMode } from '../../lib/drag';
 import { patchRecord, restoreRecord, validateIntervals, type IntervalMs } from '../../db/actions';
 import { showUndo } from '../../ui/undo';
-import { dateText, monthShort, weekdayNarrow } from '../../i18n/dates';
+import { clockRange, clockText, dateText, dayOfMonth, hourLabel, monthShort, weekdayNarrow } from '../../i18n/dates';
 import { tr } from '../../i18n';
+import { getHour12 } from '../../lib/zone';
 
 const HOUR = 3_600_000;
-const DAY = 24 * HOUR;
 const MOVE_THRESHOLD_PX = 4;
 const SNAP_PX = 6;
 const AUTOSCROLL_ZONE_PX = 40;
 
-const hm = (ms: number) => {
-  const d = new Date(ms);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-};
+const hm = clockText;
 
 interface Block {
   key: string;
@@ -181,7 +178,7 @@ export function CalendarView({
 
   /** 当天可吸附的边：其他色块的起止、空档边界、现在、当天起止 */
   const edgesFor = (day: number, excludeKey?: string) => {
-    const edges = [day, day + DAY];
+    const edges = [day, addDays(day, 1)];
     if (day === today) edges.push(now);
     for (const b of blocksByDay.get(day) ?? []) {
       if (b.key === excludeKey) continue;
@@ -217,7 +214,7 @@ export function CalendarView({
       const s = hitStart ?? (hitEnd !== undefined ? hitEnd - dur : snapTime(raw, [], th));
       proposed = { start: s, end: s + dur };
     }
-    const ivs = dragIntervals(toMs(d.rec), d.ivIndex, d.mode, proposed, realNow, { lo: d.day, hi: d.day + DAY });
+    const ivs = dragIntervals(toMs(d.rec), d.ivIndex, d.mode, proposed, realNow, { lo: d.day, hi: addDays(d.day, 1) });
     const iv = ivs[d.ivIndex];
     setDragState({ ...d, ivs, preview: { start: iv.start, end: iv.end ?? realNow } });
   };
@@ -384,20 +381,17 @@ export function CalendarView({
 
   return (
     <div
-      className={`cal${days.length === 1 ? ' is-day' : ' is-week'}${drag ? ' is-dragging' : ''}`}
+      className={`cal${days.length === 1 ? ' is-day' : ' is-week'}${getHour12() ? ' is-h12' : ''}${drag ? ' is-dragging' : ''}`}
       style={{ '--hour': `${hourPx}px` } as CSSProperties}
     >
       {days.length > 1 && (
         <div className="cal-head">
           <span className="cal-gutter cal-month">{monthShort(days[0], days[days.length - 1])}</span>
-          {days.map((d) => {
-            const date = new Date(d);
-            return (
-              <span key={d} className={`cal-day-label${d === today ? ' is-today' : ''}`}>
-                {weekdayNarrow(d)} <strong>{date.getDate()}</strong>
-              </span>
-            );
-          })}
+          {days.map((d) => (
+            <span key={d} className={`cal-day-label${d === today ? ' is-today' : ''}`}>
+              {weekdayNarrow(d)} <strong>{dayOfMonth(d)}</strong>
+            </span>
+          ))}
         </div>
       )}
       <div className="cal-scroll" ref={scrollRef}>
@@ -405,7 +399,7 @@ export function CalendarView({
           <div className="cal-hours" aria-hidden="true">
             {Array.from({ length: 24 }, (_, h) => (
               <span key={h} style={{ top: h * hourPx }}>
-                {h === 0 ? '' : `${h}:00`}
+                {h === 0 ? '' : hourLabel(h)}
               </span>
             ))}
           </div>
@@ -444,7 +438,7 @@ export function CalendarView({
                     aria-hidden="true"
                   >
                     <span className="cal-drag-label">
-                      {hm(gapDrag.preview.start)}–{hm(gapDrag.preview.end)} · {formatHm(gapDrag.preview.end - gapDrag.preview.start)}
+                      {clockRange(gapDrag.preview.start, gapDrag.preview.end)} · {formatHm(gapDrag.preview.end - gapDrag.preview.start)}
                     </span>
                   </span>
                 )}
@@ -486,13 +480,13 @@ export function CalendarView({
                       )}
                       {h >= 36 && !dragging && (
                         <span className="cal-block-time">
-                          {hm(b.start)}–{live ? tr("现在") : hm(b.end)}
+                          {clockRange(b.start, live ? tr("现在") : b.end)}
                         </span>
                       )}
                       {showHandles && b.canEnd && <span className="cal-handle is-bottom" data-handle="end" aria-hidden="true" />}
                       {dragging && (
                         <span className="cal-drag-label">
-                          {hm(start)}–{live && dragging.mode === 'start' ? tr("现在") : hm(end)} · {formatHm(end - start)}
+                          {clockRange(start, live && dragging.mode === 'start' ? tr("现在") : end)} · {formatHm(end - start)}
                         </span>
                       )}
                     </button>

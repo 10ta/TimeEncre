@@ -1469,7 +1469,6 @@ kbd {
   padding: 0;
   display: grid;
   gap: 0.4rem;
-  counter-reset: iv;
 }
 
 .iv-list li {
@@ -1477,6 +1476,54 @@ kbd {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 34px;
   align-items: center;
   gap: 0.4rem;
+}
+
+/* 段号只在窄屏的竖排里显示 */
+.iv-num {
+  display: none;
+}
+
+/* 日期 + 时刻（自己的时刻框，按 12/24 小时制设置显示） */
+.dtf {
+  display: flex;
+  align-items: stretch;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.dtf .dtf-date {
+  flex: 1 1 8.5rem;
+  min-width: 0;
+}
+
+.dtf .dtf-time {
+  flex: 0 0 4.4rem;
+  width: 4.4rem;
+  min-width: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.dtf .dtf-time.is-bad {
+  border-color: var(--danger, #c0392b);
+}
+
+.dtf-ampm {
+  flex: 0 0 auto;
+  padding: 0 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm, 6px);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dtf-ampm:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .iv-sep {
@@ -1511,13 +1558,12 @@ kbd {
     gap: 0;
   }
   .iv-list li {
-    counter-increment: iv;
     grid-template-columns: minmax(0, 1fr) 34px;
     padding: 0.5rem 0;
     border-top: 1px dashed var(--line);
   }
-  .iv-list li::before {
-    content: '第 ' counter(iv) ' 段';
+  .iv-list li .iv-num {
+    display: block;
     grid-column: 1 / -1;
     font-size: 0.8rem;
     color: var(--muted);
@@ -1525,8 +1571,8 @@ kbd {
   .iv-list li .iv-sep {
     display: none;
   }
-  .iv-list li > :nth-child(1),
-  .iv-list li > :nth-child(3) {
+  .iv-list li > .dtf,
+  .iv-list li > .iv-open {
     grid-column: 1;
   }
   .iv-list li > .icon-btn {
@@ -2562,6 +2608,8 @@ body.has-dock .floating-sheet-wrap {
 /* ---------- 日历视图 ---------- */
 
 .cal {
+  --gutter: 3.2rem;
+  --gutter-sm: 2.4rem;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surface);
@@ -2570,7 +2618,7 @@ body.has-dock .floating-sheet-wrap {
 
 .cal-head {
   display: grid;
-  grid-template-columns: 3.2rem repeat(7, minmax(0, 1fr));
+  grid-template-columns: var(--gutter) repeat(7, minmax(0, 1fr));
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
@@ -2602,12 +2650,12 @@ body.has-dock .floating-sheet-wrap {
 .cal-grid {
   position: relative;
   display: grid;
-  grid-template-columns: 3.2rem repeat(var(--cols, 1), minmax(0, 1fr));
+  grid-template-columns: var(--gutter) repeat(var(--cols, 1), minmax(0, 1fr));
   height: calc(var(--hour) * 24);
 }
 
 .cal.is-week .cal-grid {
-  grid-template-columns: 3.2rem repeat(7, minmax(0, 1fr));
+  grid-template-columns: var(--gutter) repeat(7, minmax(0, 1fr));
 }
 
 .cal-hours {
@@ -2738,7 +2786,7 @@ body.has-dock .floating-sheet-wrap {
 @media (max-width: 759px) {
   .cal.is-week .cal-head,
   .cal.is-week .cal-grid {
-    grid-template-columns: 2.4rem repeat(7, minmax(44px, 1fr));
+    grid-template-columns: var(--gutter-sm) repeat(7, minmax(44px, 1fr));
   }
   .cal.is-week {
     overflow-x: auto;
@@ -2746,6 +2794,12 @@ body.has-dock .floating-sheet-wrap {
   .cal-scroll {
     max-height: calc(100dvh - 19rem);
   }
+}
+
+/* 12 小时制的刻度（“上午10时” / “10 AM”）更长 */
+.cal.is-h12 {
+  --gutter: 3.9rem;
+  --gutter-sm: 3.3rem;
 }
 
 /* 日历左上角的月份 */
@@ -2937,4 +2991,8 @@ body.has-dock .floating-sheet-wrap {
   margin: 0.6rem 0 0;
   font-size: 0.82rem;
   color: var(--muted);
+}
+
+.tz-select {
+  max-width: min(22rem, 100%);
 }

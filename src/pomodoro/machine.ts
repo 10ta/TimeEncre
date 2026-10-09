@@ -1,4 +1,5 @@
 // 番茄钟状态机（纯函数）。一切按时间戳计算：页面在后台、被关掉再打开，状态都能正确推算出来。
+import { dayKey } from '../lib/zone';
 import type { Settings } from '../schema';
 
 export type Phase = 'work' | 'short' | 'long';
@@ -19,10 +20,7 @@ export interface PomoState {
   today: { day: string; count: number; focusMs: number };
 }
 
-export const dayKey = (ms: number) => {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+export { dayKey };
 
 export const initialState = (now: number): PomoState => ({
   phase: 'work',

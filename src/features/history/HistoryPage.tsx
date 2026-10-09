@@ -15,6 +15,7 @@ import { GAP_MIN_MS } from '../../lib/gaps';
 import { CalendarView, dayGaps } from './CalendarView';
 import { GapActions } from './GapActions';
 import { tr } from '../../i18n';
+import { clockRange } from '../../i18n/dates';
 
 type View = 'calendar' | 'list';
 const VIEW_KEY = 'timeencre.historyView';
@@ -26,10 +27,6 @@ const readView = (): View => {
   }
 };
 
-const hm = (ms: number) => {
-  const d = new Date(ms);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-};
 
 type Item = { kind: 'seg'; seg: DaySeg<DbRecord> } | { kind: 'gap'; start: number; end: number };
 
@@ -103,7 +100,7 @@ export function HistoryPage() {
   if (!records || !typeMap || !tagMap || !settings || firstMs === undefined) return null;
 
   // 不显示未来的日子
-  const visibleTo = Math.min(range.to, addDays(new Date(now).setHours(0, 0, 0, 0), 1));
+  const visibleTo = Math.min(range.to, addDays(startOfDay(now), 1));
   const byDay = splitByDay(filtered, range.from, visibleTo, now);
   const days = [...byDay.keys()].sort((a, b) => b - a);
   const total = [...byDay.values()].flat().reduce((a, s) => a + s.ms, 0);
@@ -250,7 +247,7 @@ export function HistoryPage() {
                             title={tr("点击记录为某个活动")}
                           >
                             <span className="gap-time">
-                              {hm(it.start)} – {hm(it.end)}
+                              {clockRange(it.start, it.end, ' – ')}
                             </span>
                             <span className="gap-label">{tr("未记录")}</span>
                             <span className="gap-ms">{formatHm(it.end - it.start)}</span>
@@ -318,7 +315,7 @@ function Entry({
             {r.state === 'paused' && <span className="badge">{tr("已暂停")}</span>}
           </span>
           <span className="entry-time">
-            {hm(seg.start)} – {live ? tr("现在") : hm(seg.end)}
+            {clockRange(seg.start, live ? tr("现在") : seg.end, ' – ')}
             {seg.spans.length > 1 && <span className="entry-parts">{tr("（{0} 段）", seg.spans.length)}</span>}
             {seg.fromPrevDay && <span className="cont">{tr("接前日")}</span>}
             {seg.toNextDay && <span className="cont">{tr("延续到次日")}</span>}
@@ -346,7 +343,7 @@ function Entry({
   );
 }
 
-const hmRange = (g: { start: number; end: number }) => `${hm(g.start)} – ${hm(g.end)}`;
+const hmRange = (g: { start: number; end: number }) => clockRange(g.start, g.end, ' – ');
 
 /** 日历里点色块：在底部浮出编辑面板（与进行中栏同一种） */
 function RecordSheet({

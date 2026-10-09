@@ -5,6 +5,7 @@ import { TagPicker } from '../../ui/fields';
 import { IconButton } from '../../ui/Icon';
 import { useAutosave } from '../../ui/useAutosave';
 import { commitAndClose } from '../../ui/commitAndClose';
+import { DateTimeField } from '../../ui/DateTimeField';
 import { useRecord, useTypeMap, useTypes } from '../../db/hooks';
 import {
   createManualRecord,
@@ -83,12 +84,13 @@ function IntervalsEditor({
       <ol className="iv-list">
         {rows.map((r, i) => (
           <li key={r.key}>
-            <input type="datetime-local" aria-label={tr("第 {0} 段开始", i + 1)} value={r.start} onChange={(e) => set(r.key, { start: e.target.value })} />
+            <span className="iv-num" aria-hidden="true">{tr("第 {0} 段", i + 1)}</span>
+            <DateTimeField label={tr("第 {0} 段开始", i + 1)} value={r.start} onChange={(v) => set(r.key, { start: v })} />
             <span className="iv-sep" aria-hidden="true">–</span>
             {r.end === null ? (
               <span className="iv-open">{tr("进行中")}</span>
             ) : (
-              <input type="datetime-local" aria-label={tr("第 {0} 段结束", i + 1)} value={r.end} onChange={(e) => set(r.key, { end: e.target.value })} />
+              <DateTimeField label={tr("第 {0} 段结束", i + 1)} value={r.end} onChange={(v) => set(r.key, { end: v })} />
             )}
             {rows.length > 1 && r.end !== null && (
               <IconButton icon="close" label={tr("删除第 {0} 段", i + 1)} onClick={() => onChange(rows.filter((x) => x.key !== r.key))} />

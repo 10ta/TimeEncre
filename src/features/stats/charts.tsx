@@ -1,7 +1,8 @@
 // 手写 SVG 图表：环形图、每日堆叠柱、单日时间轴。颜色全部来自类型颜色。
 import type { ReactNode } from 'react';
 import { addDays, formatHm } from '../../lib/time';
-import { weekdayNarrow } from '../../i18n/dates';
+import { dayOfMonth, hourLabel, shortDate, weekdayNarrow } from '../../i18n/dates';
+import { fromParts, getHour12, zparts } from '../../lib/zone';
 import type { Span } from '../../lib/time';
 import { tr } from '../../i18n';
 
@@ -110,8 +111,8 @@ export function DailyBars({
       {days.map((d, i) => {
         const x = pad.l + slot * i + (slot - bw) / 2;
         let acc = 0;
-        const date = new Date(d);
-        const showLabel = !dense || date.getDate() === 1 || date.getDate() % 5 === 0;
+        const dom = dayOfMonth(d);
+        const showLabel = !dense || dom === 1 || dom % 5 === 0;
         return (
           <g key={d}>
             {order.map((k) => {
@@ -123,14 +124,14 @@ export function DailyBars({
               return (
                 <rect key={k} x={x} y={y1} width={bw} height={Math.max(h, 0.5)} fill={colorOf(k)}>
                   <title>
-                    {date.getMonth() + 1}/{date.getDate()} {labelOf(k)} {formatHm(ms)}
+                    {shortDate(d)} {labelOf(k)} {formatHm(ms)}
                   </title>
                 </rect>
               );
             })}
             {showLabel && (
               <text x={x + bw / 2} y={Hh - 8} className="axis" textAnchor="middle">
-                {dense ? date.getDate() : `${weekdayNarrow(d)} ${date.getDate()}`}
+                {dense ? dom : `${weekdayNarrow(d)} ${dom}`}
               </text>
             )}
           </g>
@@ -171,13 +172,14 @@ export function DayTimeline({
   const Hh = top + Math.max(1, lanes.length) * laneH + 24;
   return (
     <svg className="timeline" viewBox={`0 0 ${W} ${Hh}`} role="img" aria-label={tr("当天时间轴")}>
-      {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => {
-        const xx = x(day + h * H);
+      {(getHour12() ? [0, 6, 12, 18, 24] : [0, 3, 6, 9, 12, 15, 18, 21, 24]).map((h) => {
+        const dp = zparts(day);
+        const xx = x(h === 24 ? dayEnd : fromParts(dp.y, dp.m, dp.d, h));
         return (
           <g key={h}>
             <line x1={xx} x2={xx} y1={top} y2={Hh - 20} className="grid" />
             <text x={xx} y={Hh - 6} className="axis" textAnchor={h === 0 ? 'start' : h === 24 ? 'end' : 'middle'}>
-              {h}:00
+              {hourLabel(h)}
             </text>
           </g>
         );

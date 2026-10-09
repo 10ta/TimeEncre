@@ -7,6 +7,10 @@ import { downloadJson, readJsonFile } from '../../io/download';
 import { fileStamp } from '../../lib/time';
 import { SyncSection } from '../../sync/SyncSection';
 import { LANGS, getLang, switchLang, tr, type Lang } from '../../i18n';
+import { AUTO, allZones, deviceZone, getHour12, getZonePref, offsetLabel, switchHour12, switchZone } from '../../lib/zone';
+import { dateTimeText } from '../../i18n/dates';
+
+const zoneName = (z: string) => `${z.replace(/_/g, ' ')} · ${offsetLabel(z)}`;
 
 const fmt = (c: MergeCount) => tr("新增 {0}，更新 {1}", c.added, c.updated);
 
@@ -106,6 +110,31 @@ export function SettingsPage() {
           </select>
         </label>
         <p className="hint">{tr("切换后页面会刷新。语言只保存在这台设备上。")}</p>
+      </section>
+
+      <section>
+        <h2>{tr("时间显示")}</h2>
+        <label className="toggle">
+          <input type="checkbox" checked={getHour12()} onChange={(e) => switchHour12(e.target.checked)} />
+          <span>
+            {tr("12 小时制")}
+            <small>{tr("关闭时用 24 小时制。现在是 {0}", dateTimeText(Date.now()))}</small>
+          </span>
+        </label>
+        <label className="field is-inline">
+          <span className="field-label">{tr("时区")}</span>
+          <select className="tz-select" value={getZonePref()} onChange={(e) => switchZone(e.target.value)}>
+            <option value={AUTO}>{tr("跟随设备（{0}）", zoneName(deviceZone()))}</option>
+            {allZones().map((z) => (
+              <option key={z} value={z}>
+                {zoneName(z)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="hint">
+          {tr("记录保存的是绝对时间点，换时区只改变显示和按天 / 周 / 月的划分，不改数据。这两项只保存在这台设备上，切换后页面会刷新。")}
+        </p>
       </section>
 
       <section>

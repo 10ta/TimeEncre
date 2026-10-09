@@ -5,6 +5,7 @@ import { useTypeMap } from '../../db/hooks';
 import { startRecord } from '../../db/actions';
 import { fromLocalInput, toLocalInput } from '../../lib/time';
 import { tr } from '../../i18n';
+import { DateTimeField } from '../../ui/DateTimeField';
 
 /** 长按 / 右键类型格子：带备注、标签或补记开始时间地开始计时 */
 export function RecordDialog(props: { mode: 'start'; typeId: string; onClose: () => void }) {
@@ -49,7 +50,7 @@ function StartDialog({ typeId, onClose }: { typeId: string; onClose: () => void 
       <div className="field">
         <span className="field-label">{tr("开始于")}</span>
         <div className="row">
-          <input type="datetime-local" value={startInput} onChange={(e) => setStartInput(e.target.value)} />
+          <DateTimeField label={tr("开始于")} value={startInput} onChange={setStartInput} />
           {QUICK_OFFSETS.map((m) => (
             <button
               key={m}

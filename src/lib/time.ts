@@ -1,17 +1,19 @@
 import { tr } from '../i18n';
+import { fromParts, offsetMs, zparts } from './zone';
 // 时间工具：存储一律用带时区偏移的 ISO 8601（秒精度），计算一律转毫秒时间戳。
+// “某天几点”一类的计算都按设置里选的时区（见 zone.ts），不依赖设备时区。
 
 const pad = (n: number, len = 2) => String(n).padStart(len, '0');
 
 /** 毫秒时间戳 → "2026-10-02T16:49:27+08:00" */
 export function toIso(ms: number): string {
-  const d = new Date(ms);
-  const off = -d.getTimezoneOffset();
+  const p = zparts(ms);
+  const off = Math.round(offsetMs(ms) / 60_000);
   const sign = off >= 0 ? '+' : '-';
   const abs = Math.abs(off);
   return (
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}` +
+    `${p.y}-${pad(p.m)}-${pad(p.d)}` +
+    `T${pad(p.h)}:${pad(p.mi)}:${pad(p.s)}` +
     `${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
   );
 }
@@ -50,22 +52,22 @@ export function clippedMs(spans: Span[], from: number, to: number): number {
   );
 }
 
+/** 所选时区里当天 0 点 */
 export function startOfDay(ms: number): number {
-  const d = new Date(ms);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
+  const p = zparts(ms);
+  return fromParts(p.y, p.m, p.d);
 }
 
+/** 按日历日加减（遇到夏令时，一天可能是 23 或 25 小时） */
 export function addDays(ms: number, n: number): number {
-  const d = new Date(ms);
-  d.setDate(d.getDate() + n);
-  return d.getTime();
+  const p = zparts(ms);
+  return fromParts(p.y, p.m, p.d + n, p.h, p.mi, p.s) + (((ms % 1000) + 1000) % 1000);
 }
 
-/** "2026-10"，用于按月分文件 */
+/** 所选时区里的 "2026-10" */
 export function monthKey(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  const p = zparts(ms);
+  return `${p.y}-${pad(p.m)}`;
 }
 
 /** 01:01:01（小时可超过 99） */
@@ -82,18 +84,20 @@ export function formatHm(ms: number): string {
   return h === 0 ? `${m}m` : `${h}h ${pad(m % 60)}m`;
 }
 
-/** 毫秒 → <input type="datetime-local"> 的值 */
+/** 毫秒 → 所选时区里的 "2026-10-08T21:30"（时间输入框用） */
 export function toLocalInput(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const p = zparts(ms);
+  return `${p.y}-${pad(p.m)}-${pad(p.d)}T${pad(p.h)}:${pad(p.mi)}`;
 }
 
-/** <input type="datetime-local"> 的值 → 毫秒（按本地时区解释） */
+/** "2026-10-08T21:30" → 毫秒（按所选时区解释）；格式不对返回 NaN */
 export function fromLocalInput(value: string): number {
-  return new Date(value).getTime();
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return NaN;
+  return fromParts(+m[1], +m[2], +m[3], +m[4], +m[5]);
 }
 
 export function fileStamp(ms: number): string {
-  const d = new Date(ms);
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  const p = zparts(ms);
+  return `${p.y}${pad(p.m)}${pad(p.d)}-${pad(p.h)}${pad(p.mi)}`;
 }
