@@ -417,7 +417,6 @@ export const fr: Record<string, string> = {
   "预约结束": "Fin prévue",
   "结束要晚于开始": "La fin doit être après le début",
   "取消预约": "Retirer le créneau",
-  "完成": "OK",
   "今天的预约": "Prévu aujourd’hui",
   "今天没有预约。置顶的清单会显示在这里。": "Rien de prévu aujourd’hui. Les listes épinglées s’affichent ici.",
   "已完成「{0}」": "« {0} » terminé",

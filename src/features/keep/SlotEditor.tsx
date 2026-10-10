@@ -1,10 +1,14 @@
-// 条目的预约时间段：开始 / 结束两个日期时刻框，改了就保存（结束早于开始时不保存并提示）
-import { useState } from 'react';
+// 条目的预约时间段。和记录的“时间段”用同一套：同样的日期时刻框、同样的一行“开始 – 结束 ×”，
+// 改了就自动保存；点空白处 / 按 Esc 收起（收起前先提交正在输入的值）；× 取消预约。
+import { useRef, useState } from 'react';
 import { DateTimeField } from '../../ui/DateTimeField';
+import { IconButton } from '../../ui/Icon';
 import { updateItem } from '../../db/keep';
 import { fromLocalInput, toIso, toLocalInput } from '../../lib/time';
 import { fromParts, zparts } from '../../lib/zone';
 import { useAutosave } from '../../ui/useAutosave';
+import { useOutsideClose } from '../../ui/useOutsideClose';
+import { commitAndClose } from '../../ui/commitAndClose';
 import type { KeepItem } from '../../schema';
 import { slotMs } from './model';
 import { tr } from '../../i18n';
@@ -15,61 +19,48 @@ const H = 3_600_000;
 export function defaultSlot(now = Date.now()) {
   const p = zparts(now);
   const start = fromParts(p.y, p.m, p.d, p.h + 1);
-  return { start: toIso(start), end: toIso(start + H) };
+  return { start, end: start + H };
 }
 
-export function SlotEditor({ item, onDone }: { item: KeepItem; onDone: () => void }) {
-  const cur = slotMs(item);
-  const [start, setStart] = useState(() => toLocalInput(cur?.start ?? Date.parse(defaultSlot().start)));
-  const [end, setEnd] = useState(() => toLocalInput(cur?.end ?? Date.parse(defaultSlot().end)));
+export function SlotEditor({ item, onClose }: { item: KeepItem; onClose: () => void }) {
+  const cur = slotMs(item) ?? defaultSlot();
+  const [start, setStart] = useState(() => toLocalInput(cur.start));
+  const [end, setEnd] = useState(() => toLocalInput(cur.end));
   const s = fromLocalInput(start);
   const e = fromLocalInput(end);
   const valid = !Number.isNaN(s) && !Number.isNaN(e) && e > s;
-  const savedKey = cur ? [toLocalInput(cur.start), toLocalInput(cur.end)] : null;
-  const flush = useAutosave(valid ? [start, end] : savedKey, savedKey, (v) => {
-    if (v) void updateItem(item.id, { slot: { start: toIso(fromLocalInput(v[0])), end: toIso(fromLocalInput(v[1])) } });
-  }, 300);
+  const saved = slotMs(item);
+  const savedKey = saved ? [toLocalInput(saved.start), toLocalInput(saved.end)] : null;
+  // 打开即表示要预约：默认时间也会保存；结束不晚于开始时不保存
+  const removed = useRef(false);
+  useAutosave(valid ? [start, end] : savedKey, savedKey, (v) => {
+    if (v && !removed.current) void updateItem(item.id, { slot: { start: toIso(fromLocalInput(v[0])), end: toIso(fromLocalInput(v[1])) } });
+  });
 
-  // 改开始时保持时长不变，结束跟着挪
-  const moveStart = (v: string) => {
-    const ns = fromLocalInput(v);
-    if (!Number.isNaN(ns) && valid) setEnd(toLocalInput(ns + (e - s)));
-    setStart(v);
-  };
+  const ref = useRef<HTMLDivElement>(null);
+  useOutsideClose(true, ref, onClose);
 
   return (
-    <div className="slot-editor">
-      <div className="slot-row">
-        <DateTimeField label={tr("预约开始")} value={start} onChange={moveStart} />
-        <span className="iv-sep" aria-hidden="true">–</span>
-        <DateTimeField label={tr("预约结束")} value={end} onChange={setEnd} />
-      </div>
-      {!valid && <p className="form-error" role="alert">{tr("结束要晚于开始")}</p>}
-      <div className="row">
-        {item.slot && (
-          <button
-            type="button"
-            className="btn is-small is-quiet"
+    <div className="field slot-editor" ref={ref} onKeyDown={(ev) => ev.key === 'Escape' && commitAndClose(ref.current, onClose)}>
+      <ol className="iv-list">
+        <li>
+          <DateTimeField label={tr("预约开始")} value={start} onChange={setStart} />
+          <span className="iv-sep" aria-hidden="true">–</span>
+          <DateTimeField label={tr("预约结束")} value={end} onChange={setEnd} />
+          <IconButton
+            icon="close"
+            label={tr("取消预约")}
             onClick={() => {
+              if (removed.current) return;
+              removed.current = true;
+              // 标记后卸载时就不会再把时间存回去
               void updateItem(item.id, { slot: null });
-              onDone();
+              onClose();
             }}
-          >
-            {tr("取消预约")}
-          </button>
-        )}
-        <span className="spacer" />
-        <button
-          type="button"
-          className="btn is-small"
-          onClick={() => {
-            flush();
-            onDone();
-          }}
-        >
-          {tr("完成")}
-        </button>
-      </div>
+          />
+        </li>
+      </ol>
+      {!valid && <p className="form-error" role="alert">{tr("结束要晚于开始")}</p>}
     </div>
   );
 }

@@ -317,8 +317,6 @@ function ItemRow({
   const rowRef = useRef<HTMLLIElement>(null);
   useAutoHeight(ref, text);
   const [slotOpen, setSlotOpen] = useState(false);
-  const slotRef = useRef<HTMLDivElement>(null);
-  useOutsideClose(slotOpen, slotRef, () => setSlotOpen(false));
 
   useEffect(() => {
     if (!focus) return;
@@ -392,11 +390,6 @@ function ItemRow({
           onKeyDown={(e) => void onKey(e)}
         />
         {item.slot && !slotOpen && <SlotChip item={item} now={now} onClick={() => setSlotOpen(true)} />}
-        {slotOpen && (
-          <div ref={slotRef}>
-            <SlotEditor item={item} onDone={() => setSlotOpen(false)} />
-          </div>
-        )}
       </div>
       <span className="keep-tools">
         {!item.slot && !item.done && (
@@ -408,6 +401,8 @@ function ItemRow({
           <Icon name="close" />
         </button>
       </span>
+      {/* 放在整行下面，比条目文字那一栏宽，开始 / 结束在电脑上能排成一行 */}
+      {slotOpen && <SlotEditor item={item} onClose={() => setSlotOpen(false)} />}
     </li>
   );
 }
