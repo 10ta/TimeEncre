@@ -160,6 +160,7 @@ export function CalendarView({
   onFlip,
   plans = [],
   onOpenPlan,
+  isGapSelected,
   onOpenRecord,
   onOpenGap,
 }: {
@@ -176,6 +177,8 @@ export function CalendarView({
   /** 拖动时停在边缘：翻到前 / 后一天（日）或一周（周） */
   onFlip: (dir: -1 | 1) => void;
   plans?: Plan[];
+  /** “全选未记录”时，哪些空档算选中 */
+  isGapSelected?: (g: Span) => boolean;
   /** 点预约框 */
   onOpenPlan?: (plan: Plan) => void;
   onOpenRecord: (rec: DbRecord) => void;
@@ -560,7 +563,7 @@ export function CalendarView({
                     <button
                       key={key}
                       type="button"
-                      className={`cal-gap${isPicked(key) ? ' is-selected' : ''}`}
+                      className={`cal-gap${isPicked(key) || isGapSelected?.(g) ? ' is-selected' : ''}`}
                       aria-expanded={selectedKey === key}
                       style={{ top: y(g.start), height: Math.max(h, 3) }}
                       onPointerDown={(e) => onGapDown(e, g)}

@@ -32,20 +32,35 @@ export function unlockAudio() {
   }
 }
 
-/** 三声短促的提示音 */
-export function chime() {
+function tone(freq: number, at: number, dur: number, type: OscillatorType = 'sine', vol = 0.22) {
+  const c = ctx!;
+  const t = c.currentTime + at;
+  const osc = c.createOscillator();
+  const gain = c.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(gain).connect(c.destination);
+  osc.start(t);
+  osc.stop(t + dur + 0.02);
+}
+
+/**
+ * 进入某个阶段的提示音，三种听起来不一样：
+ * 专注 = 明亮的上行三音；短休息 = 柔和的下行两音；长休息 = 更慢、更长的下行四音。
+ */
+export function phaseSound(phase: 'work' | 'short' | 'long') {
   if (!ctx) return;
-  const t = ctx.currentTime;
-  [0, 0.22, 0.44].forEach((dt, i) => {
-    const osc = ctx!.createOscillator();
-    const gain = ctx!.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = i === 2 ? 1046.5 : 784;
-    gain.gain.setValueAtTime(0.0001, t + dt);
-    gain.gain.exponentialRampToValueAtTime(0.25, t + dt + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + dt + 0.18);
-    osc.connect(gain).connect(ctx!.destination);
-    osc.start(t + dt);
-    osc.stop(t + dt + 0.2);
-  });
+  if (ctx.state === 'suspended') void ctx.resume();
+  if (phase === 'work') {
+    [523.25, 659.25, 783.99].forEach((f, i) => tone(f, i * 0.13, 0.22, 'sine', 0.25));
+    tone(1046.5, 0.39, 0.45, 'sine', 0.2);
+  } else if (phase === 'short') {
+    tone(783.99, 0, 0.45, 'triangle', 0.28);
+    tone(523.25, 0.3, 0.7, 'triangle', 0.28);
+  } else {
+    [783.99, 659.25, 523.25, 392].forEach((f, i) => tone(f, i * 0.38, i === 3 ? 1.2 : 0.6, 'triangle', 0.28));
+  }
 }

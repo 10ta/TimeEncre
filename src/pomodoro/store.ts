@@ -7,7 +7,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type DbRecord } from '../db/db';
 import { getSettings, pauseRecord, resumeRecord, startRecord, stopRecord, stopRecordAt } from '../db/actions';
-import { chime, notify } from '../lib/notify';
+import { notify, phaseSound } from '../lib/notify';
 import { fromIso } from '../lib/time';
 import * as M from './machine';
 import type { PomoState } from './machine';
@@ -18,6 +18,8 @@ const KEY = 'pomodoroState';
 export const POMODORO_COMMENT = '🍅 Pomo';
 const POMODORO_COMMENTS = new Set([POMODORO_COMMENT, '\u{1F345} \u756A\u8304\u949F']);
 export const isPomodoroComment = (c: string) => POMODORO_COMMENTS.has(c);
+/** Pomo 休息自动生成记录的备注 */
+export const POMODORO_BREAK_COMMENT = '☕ Pomo';
 
 let chain: Promise<unknown> = Promise.resolve();
 
@@ -39,18 +41,24 @@ export const usePomo = () => useLiveQuery(getPomo, []);
 
 const cfg = async () => (await getSettings()).pomodoro;
 
-const startLinkedRecord = (c: M.PomoConfig, startMs: number) =>
-  startRecord(c.linkedTypeId!, { startMs, comment: POMODORO_COMMENT, tagIds: M.linkedTags(c) });
+/** 为某个阶段建记录（专注带备注“🍅 Pomo”和所选标签；休息带备注“☕ Pomo”）；这个阶段没设活动时返回 null */
+async function startPhaseRecord(c: M.PomoConfig, phase: M.Phase, startMs: number): Promise<string | null> {
+  const typeId = M.typeForPhase(c, phase);
+  if (!typeId) return null;
+  return phase === 'work'
+    ? startRecord(typeId, { startMs, comment: POMODORO_COMMENT, tagIds: M.linkedTags(c) })
+    : startRecord(typeId, { startMs, comment: POMODORO_BREAK_COMMENT, tagIds: [] });
+}
 
 async function settleInner(alert: boolean) {
   const c = await cfg();
   const now = Date.now();
   const before = await getPomo();
-  const { state, finished, workStartedAt } = M.settle(before, c, now);
+  const { state, finished, startedAt } = M.settle(before, c, now);
   if (finished.length === 0 && state === before) return;
   for (const f of finished) if (f.recordId) await stopRecordAt(f.recordId, f.endAt);
   let next = state;
-  if (workStartedAt !== null && c.linkedTypeId) next = { ...next, recordId: await startLinkedRecord(c, workStartedAt) };
+  if (startedAt !== null && next.status === 'running') next = { ...next, recordId: await startPhaseRecord(c, next.phase, startedAt) };
   await putPomo(next);
   if (finished.length && alert) {
     const last = finished[finished.length - 1];
@@ -59,7 +67,8 @@ async function settleInner(alert: boolean) {
       last.phase === 'work'
         ? tr("今天已完成 {0} 个番茄。{1}", next.today.count, next.status === 'running' ? tr("休息已自动开始。") : tr("该休息一下了。"))
         : next.status === 'running' ? tr("新的专注已自动开始。") : tr("准备开始下一个番茄。");
-    if (c.sound) chime();
+    // 提示音按“接下来进入的阶段”：自动开始了就是进入它，没自动开始就是提醒该进入它了
+    if (c.sound) phaseSound(next.phase);
     await notify(title, body);
   }
 }
@@ -74,11 +83,13 @@ export const startPomo = () =>
     const s = await getPomo();
     const now = Date.now();
     if (s.status === 'running') return;
+    // 从头开始一段（不是暂停后继续）：播这一段的提示音，手动点开始也一样
+    if (s.status === 'idle' && c.sound) phaseSound(s.phase);
     let next = M.start(s, now);
     if (s.status === 'paused') {
       if (s.recordId) await resumeRecord(s.recordId);
-    } else if (s.phase === 'work' && c.linkedTypeId) {
-      next = { ...next, recordId: await startLinkedRecord(c, now) };
+    } else {
+      next = { ...next, recordId: await startPhaseRecord(c, s.phase, now) };
     }
     await putPomo(next);
   });

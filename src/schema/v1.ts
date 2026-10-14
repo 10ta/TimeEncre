@@ -66,6 +66,8 @@ export const PomodoroV1 = z.looseObject({
   autoStartFocus: z.boolean().optional(),
   /** 专注记录自动带上的标签 */
   linkedTagIds: z.array(z.string()).optional(),
+  /** 休息（短休、长休）时记录为哪个活动；不设则休息不生成记录 */
+  breakTypeId: z.string().nullable().optional(),
   sound: z.boolean().default(true),
 });
 

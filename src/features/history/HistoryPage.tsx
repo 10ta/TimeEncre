@@ -4,7 +4,7 @@ import type { DbRecord } from '../../db/db';
 import { fromDb } from '../../db/db';
 import type { CatalogItem } from '../../schema';
 import { useNow } from '../../ui/hooks';
-import { addDays, formatClock, formatHm, startOfDay } from '../../lib/time';
+import { addDays, formatClock, formatHm, recordSpans, startOfDay, type Span } from '../../lib/time';
 import { dayLabel, daysIn, rangeOf, shiftAnchor, type RangeMode } from '../../lib/range';
 import { gaps, splitByDay, type DaySeg } from '../../lib/segments';
 import { RangeNav } from '../shared/RangeNav';
@@ -15,6 +15,7 @@ import { GAP_MIN_MS } from '../../lib/gaps';
 import { CalendarView, dayGaps, type Plan } from './CalendarView';
 import { slotMs, useKeepItems, useKeepLists } from '../keep/model';
 import { GapActions } from './GapActions';
+import { MultiGapSheet } from './MultiGapSheet';
 import { tr } from '../../i18n';
 import { clockRange, spanText } from '../../i18n/dates';
 
@@ -55,6 +56,8 @@ export function HistoryPage() {
   // 日历里点中的色块 / 空档：'rec:<id>' 或 'gap:<开始时间>'
   // fresh：刚补录完的记录，打开时检查一次重叠
   const [sheet, setSheet] = useState<{ key: string; recId?: string; fresh?: boolean; gap?: { start: number; end: number }; plan?: Plan } | null>(null);
+  /** “全选未记录”选中的空档 */
+  const [multi, setMulti] = useState<Span[] | null>(null);
   const keepLists = useKeepLists();
   const keepItems = useKeepItems();
 
@@ -76,6 +79,10 @@ export function HistoryPage() {
   }, []);
   // 同一时间只展开一个：'new' = 顶部补录；'gap:<开始时间>' = 某个空白下的补录；'<日>:<记录id>' = 编辑某条
   const [openKey, setOpenKey] = useState<string | null>(null);
+  // 打开了别的面板 / 抽屉就退出“全选”
+  useEffect(() => {
+    if (sheet || openKey) setMulti(null);
+  }, [sheet, openKey]);
   const toggle = (k: string) => setOpenKey((cur) => (cur === k ? null : k));
 
   const range = rangeOf(mode, anchor, settings?.weekStart ?? 1);
@@ -126,6 +133,15 @@ export function HistoryPage() {
   const calendarMode = mode !== 'month';
   const showCalendar = calendarMode && view === 'calendar';
   const calDays = daysIn(range.from, range.to);
+  // 当前页签范围内的全部未记录时间（跨午夜的不拆开）；搜索时不算
+  const rangeGaps = (() => {
+    const from = Math.max(range.from, gapFloor);
+    const to = Math.min(range.to, now);
+    if (q || !(from < to)) return [];
+    return gaps(records.flatMap((r) => recordSpans(r, now)), from, to, GAP_MIN_MS);
+  })();
+  const covered = (g: Span) => !!multi?.some((m) => g.start >= m.start && g.end <= m.end);
+
   // Keep 里与这段时间有交集的预约
   const lm = new Map((keepLists ?? []).map((l) => [l.id, l]));
   const plans: Plan[] = (keepItems ?? []).flatMap((it) => {
@@ -182,6 +198,22 @@ export function HistoryPage() {
             <span>{tr("显示未记录的空白")}</span>
           </label>
         )}
+        <button
+          type="button"
+          className={`btn${multi ? ' is-active' : ''}`}
+          aria-expanded={!!multi}
+          disabled={rangeGaps.length === 0}
+          title={q ? tr("搜索时不能选未记录时间") : tr("选中这段时间里所有未记录的时间，一起处理")}
+          onClick={() => {
+            if (multi) return setMulti(null);
+            setSheet(null);
+            setOpenKey(null);
+            if (!showCalendar) setShowGaps(true);
+            setMulti(rangeGaps);
+          }}
+        >
+          {tr("全选未记录（{0}）", rangeGaps.length)}
+        </button>
         <button type="button" className={`btn${openKey === 'new' ? ' is-active' : ''}`} aria-expanded={openKey === 'new'} onClick={() => toggle('new')}>
           {tr("＋ 补录")}
         </button>
@@ -208,6 +240,7 @@ export function HistoryPage() {
             onOpenRecord={(rec) => setSheet((cur) => (cur?.key === `rec:${rec.id}` ? null : { key: `rec:${rec.id}`, recId: rec.id }))}
             onOpenGap={(gap) => setSheet((cur) => (cur?.key === `gap:${gap.start}` ? null : { key: `gap:${gap.start}`, gap }))}
             plans={q ? [] : plans}
+            isGapSelected={multi ? covered : undefined}
             onOpenPlan={(p) => {
               // 将来的预约还不能补录：去 Keep 里看它
               if (p.start > Date.now()) location.hash = `#/keep?item=${p.id}`;
@@ -262,7 +295,7 @@ export function HistoryPage() {
                         <div className="gap-row">
                           <button
                             type="button"
-                            className={`gap${openKey === `gap:${it.start}` ? ' is-open' : ''}`}
+                            className={`gap${openKey === `gap:${it.start}` ? ' is-open' : ''}${covered(it) ? ' is-selected' : ''}`}
                             aria-expanded={openKey === `gap:${it.start}`}
                             onClick={() => toggle(`gap:${it.start}`)}
                             title={tr("点击记录为某个活动")}
@@ -291,6 +324,7 @@ export function HistoryPage() {
           })}
         </>
       )}
+      {multi && <MultiGapSheet key={multi.map((g) => g.start).join(',')} gaps={multi} now={now} typeMap={typeMap} onClose={() => setMulti(null)} />}
     </div>
   );
 }

@@ -67,4 +67,21 @@ describe('Pomo 备注标记', () => {
     expect(isPomodoroComment('🍅 Pomo')).toBe(true);
     expect(isPomodoroComment('番茄')).toBe(false);
   });
+
+  it('休息设了活动：休息也生成记录，首尾和专注相接，不留空档', async () => {
+    const cfg = (await db.meta.get('settings'))?.value as { pomodoro: object } | undefined;
+    await updateSettings({ pomodoro: { ...defaultSettings().pomodoro, ...(cfg?.pomodoro ?? {}), linkedTypeId: 'study', breakTypeId: 'rest', autoStartBreak: true, autoStartFocus: false } });
+    const now = Date.now();
+    const work = await startRecord('study', { startMs: now - 27 * M, comment: POMODORO_COMMENT });
+    await db.meta.put({ key: 'pomodoroState', value: { ...initialState(now), status: 'running', runSince: now - 27 * M, recordId: work } });
+    await settleNow({ alert: false });
+    const p = await getPomo();
+    expect(p.phase).toBe('short');
+    const act = await active();
+    expect(act).toHaveLength(1);
+    expect(act[0].typeId).toBe('rest');
+    expect(p.recordId).toBe(act[0].id);
+    const w = (await db.records.get(work))!;
+    expect(w.intervals[0].end).toBe(act[0].intervals[0].start); // 专注结束 = 休息开始
+  });
 });

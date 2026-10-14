@@ -4,7 +4,7 @@ import { TagPicker } from '../../ui/fields';
 import { updateSettings } from '../../db/actions';
 import { useNow } from '../../ui/hooks';
 import { formatClock, formatHm, recordSpans, totalMs } from '../../lib/time';
-import { notificationSupported, requestNotificationPermission, unlockAudio } from '../../lib/notify';
+import { notificationSupported, phaseSound, requestNotificationPermission, unlockAudio } from '../../lib/notify';
 import { autoBreak, autoFocus, durationMs, linkedTags, remainingMs, type Phase } from '../../pomodoro/machine';
 import {
   adoptRecord,
@@ -165,8 +165,19 @@ export function PomodoroPage() {
             </select>
           </label>
           <TagPicker value={linkedTags(cfg)} onChange={(ids) => setCfg({ linkedTagIds: ids })} />
+          <label className="field">
+            <span className="field-label">{tr("休息时记录为")}</span>
+            <select value={cfg.breakTypeId ?? ''} onChange={(e) => setCfg({ breakTypeId: e.target.value || null })} disabled={pomo.status !== 'idle'}>
+              <option value="">{tr("不记录")}</option>
+              {types.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.emoji} {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <p className="hint">
-            {tr("选了活动后，每段专注都会自动生成一条该活动的记录（备注“🍅 Pomo”），并带上这里选的标签，出现在历史、统计和目标里。 在底部的进行中栏暂停、继续、停止这条记录，Pomo 会跟着变。")}
+            {tr("选了活动后，每段专注都会自动生成一条该活动的记录（备注“🍅 Pomo”），并带上这里选的标签；休息选了活动也一样（备注“☕ Pomo”），历史里就不会留下休息的空档。在底部的进行中栏暂停、继续、停止这条记录，Pomo 会跟着变。")}
           </p>
           <div className="pomo-grid">
             {(
@@ -206,8 +217,33 @@ export function PomodoroPage() {
           </label>
           <label className="toggle">
             <input type="checkbox" checked={cfg.sound} onChange={(e) => setCfg({ sound: e.target.checked })} />
-            <span>{tr("提示音")}</span>
+            <span>
+              {tr("提示音")}
+              <small>{tr("进入专注、短休息、长休息时各有一种提示音；手动点开始也会响。")}</small>
+            </span>
           </label>
+          <div className="row sound-preview">
+            <span className="hint">{tr("试听：")}</span>
+            {(
+              [
+                ['work', tr("专注")],
+                ['short', tr("短休息")],
+                ['long', tr("长休息")],
+              ] as const
+            ).map(([ph, label]) => (
+              <button
+                key={ph}
+                type="button"
+                className="btn is-small"
+                onClick={() => {
+                  unlockAudio();
+                  phaseSound(ph);
+                }}
+              >
+                ▶ {label}
+              </button>
+            ))}
+          </div>
           {perm === 'unsupported' ? (
             <p className="hint">{tr("这个浏览器不支持系统通知。")}</p>
           ) : perm === 'granted' ? (

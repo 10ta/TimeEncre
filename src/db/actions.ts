@@ -573,7 +573,8 @@ export async function suggestBackfillRange(now = Date.now()): Promise<{ start: n
 // ---------- 填充空档 ----------
 
 /** 用前一段（延长其结束）或后一段（提前其开始）填满空档 */
-export async function fillGap(gap: { start: number; end: number }, mode: 'prev' | 'next', now = Date.now()) {
+/** 用前一段 / 后一段填满空档；返回改动前的记录（用于撤销） */
+export async function fillGap(gap: { start: number; end: number }, mode: 'prev' | 'next', now = Date.now()): Promise<TimeRecord> {
   const candidates = (
     await db.records.where('startMs').between(gap.start - 3 * DAY_MS, gap.end + DAY_MS, true, true).toArray()
   ).filter((r) => !r.deleted);
@@ -582,7 +583,9 @@ export async function fillGap(gap: { start: number; end: number }, mode: 'prev' 
   const row = candidates.find((r) => r.id === n.recId)!;
   const ivs = fillIntervals(row, n, gap, mode, now);
   if (!ivs) throw new Error(tr("相邻的记录刚刚被修改过，请重试"));
+  const before = fromDb(row);
   await patchRecord(row.id, { intervals: ivs });
+  return before;
 }
 
 /**

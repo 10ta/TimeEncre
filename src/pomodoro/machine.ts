@@ -36,6 +36,8 @@ export const initialState = (now: number): PomoState => ({
 export const autoBreak = (cfg: PomoConfig) => cfg.autoStartBreak ?? cfg.autoStartNext ?? false;
 export const autoFocus = (cfg: PomoConfig) => cfg.autoStartFocus ?? cfg.autoStartNext ?? false;
 export const linkedTags = (cfg: PomoConfig) => cfg.linkedTagIds ?? [];
+/** 某个阶段要记录为哪个活动：专注用 linkedTypeId，短休 / 长休用 breakTypeId */
+export const typeForPhase = (cfg: PomoConfig, phase: Phase) => (phase === 'work' ? cfg.linkedTypeId : cfg.breakTypeId) ?? null;
 
 export function durationMs(phase: Phase, cfg: PomoConfig): number {
   const min = phase === 'work' ? cfg.workMin : phase === 'short' ? cfg.shortBreakMin : cfg.longBreakMin;
@@ -74,10 +76,11 @@ export function settle(
   s: PomoState,
   cfg: PomoConfig,
   now: number,
-): { state: PomoState; finished: Finished[]; workStartedAt: number | null } {
+): { state: PomoState; finished: Finished[]; workStartedAt: number | null; startedAt: number | null } {
   let state = rollDay(s, now);
   const finished: Finished[] = [];
   let workStartedAt: number | null = null;
+  let startedAt: number | null = null;
   for (let guard = 0; guard < 100; guard++) {
     const end = endsAt(state, cfg);
     if (end === null || end > now) break;
@@ -101,8 +104,9 @@ export function settle(
       runSince: auto ? end : null,
     };
     workStartedAt = auto && phase === 'work' ? end : null;
+    startedAt = auto ? end : null;
   }
-  return { state: rollDay(state, now), finished, workStartedAt };
+  return { state: rollDay(state, now), finished, workStartedAt, startedAt };
 }
 
 /** 跨天后清零“今天”的统计 */
