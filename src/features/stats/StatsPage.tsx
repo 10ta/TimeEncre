@@ -17,8 +17,7 @@ export function StatsPage() {
   const settings = useSettings();
   const typeMap = useTypeMap();
   const tagMap = useTagMap();
-  useNow(60_000);
-  const now = Date.now();
+  const now = useNow(60_000);
 
   const [mode, setMode] = useState<RangeMode>('week');
   const [anchor, setAnchor] = useState(now);
@@ -38,7 +37,20 @@ export function StatsPage() {
     const untracked = firstMs == null ? 0 : untrackedMs(records, Math.max(range.from, firstMs), range.to, now);
     return { byType, byTag, tracked, untracked };
     // now 每分钟变化一次，足够
-  }, [records, range.from, range.to, firstMs, Math.floor(now / 60_000)]);
+  }, [records, range.from, range.to, firstMs, now]);
+
+  // 趋势：周/月看每日堆叠柱，日看时间轴
+  const visibleTo = Math.min(range.to, addDays(startOfDay(now), 1));
+  const { byDay, daily } = useMemo(() => {
+    const byDay: Map<number, DaySeg<DbRecord>[]> = records ? splitByDay(records, range.from, visibleTo, now) : new Map();
+    const daily = new Map<number, Map<string, number>>();
+    for (const [d, segs] of byDay) {
+      const m = new Map<string, number>();
+      for (const s of segs) m.set(s.rec.typeId, (m.get(s.rec.typeId) ?? 0) + s.ms);
+      daily.set(d, m);
+    }
+    return { byDay, daily };
+  }, [records, range.from, visibleTo, now]);
 
   if (!computed || !typeMap || !tagMap || !settings) return null;
   const { byType, byTag, tracked, untracked } = computed;
@@ -65,17 +77,8 @@ export function StatsPage() {
   const rows = groupBy === 'type' ? withUntracked : tagRows;
   const base = groupBy === 'type' ? donutTotal : tracked;
 
-  // 趋势：周/月看每日堆叠柱，日看时间轴
-  const visibleTo = Math.min(range.to, addDays(startOfDay(now), 1));
   // 柱状图画满整个区间（未来的日子留空），保持每周 7 格、每月按天数排布
   const days = daysIn(range.from, range.to);
-  const byDay: Map<number, DaySeg<DbRecord>[]> = records ? splitByDay(records, range.from, visibleTo, now) : new Map();
-  const daily = new Map<number, Map<string, number>>();
-  for (const [d, segs] of byDay) {
-    const m = new Map<string, number>();
-    for (const s of segs) m.set(s.rec.typeId, (m.get(s.rec.typeId) ?? 0) + s.ms);
-    daily.set(d, m);
-  }
 
   return (
     <div className="page stats">

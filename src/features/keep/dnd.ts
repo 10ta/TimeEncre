@@ -17,6 +17,10 @@ export interface DragState {
 
 const THRESHOLD = 4;
 
+const sameTarget = (a: DropTarget | null, b: DropTarget | null) =>
+  a === b ||
+  (!!a && !!b && a.kind === b.kind && a.beforeId === b.beforeId && (a.kind === 'list' || (b.kind === 'item' && a.listId === b.listId)));
+
 /** 指针下面的放置位置：条目按上下半边决定插在它前面还是后面；落在卡片空白处就放到最后 */
 function targetAt(kind: 'item' | 'list', x: number, y: number): DropTarget | null {
   const el = document.elementFromPoint(x, y);
@@ -43,6 +47,8 @@ export function useKeepDrag(onDrop: (kind: 'item' | 'list', id: string, target: 
   const dropRef = useRef(onDrop);
   dropRef.current = onDrop;
   const stateRef = useRef<DragState | null>(null);
+  /** 跟手的提示条 */
+  const ghostRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const move = (e: PointerEvent) => {
@@ -55,8 +61,15 @@ export function useKeepDrag(onDrop: (kind: 'item' | 'list', id: string, target: 
       const next: DragState = { kind: p.kind, id: p.id, label: p.label, x: e.clientX, y: e.clientY, target: targetAt(p.kind, e.clientX, e.clientY) };
       // 拖到自己身上等于没动
       if (next.target && next.target.beforeId === p.id) next.target = null;
+      const prev = stateRef.current;
       stateRef.current = next;
-      setDrag(next);
+      // 跟手的提示条直接改样式；放置位置变了才重新渲染（以前每次移动都会重画所有卡片）
+      const g = ghostRef.current;
+      if (g) {
+        g.style.left = `${next.x + 12}px`;
+        g.style.top = `${next.y + 8}px`;
+      }
+      if (!prev || !sameTarget(prev.target, next.target)) setDrag(next);
       // 靠近窗口上下边缘时滚动页面
       const edge = 48;
       if (e.clientY < edge) window.scrollBy(0, -12);
@@ -93,5 +106,5 @@ export function useKeepDrag(onDrop: (kind: 'item' | 'list', id: string, target: 
     pending.current = { kind, id, label, x0: e.clientX, y0: e.clientY, active: false };
   };
 
-  return { drag, start };
+  return { drag, start, ghostRef };
 }

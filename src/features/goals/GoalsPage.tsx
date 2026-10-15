@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { useFirstRecordMs, useGoals, useRecordsInRange, useSettings, useTagMap, useTypeMap } from '../../db/hooks';
 import { useNow } from '../../ui/hooks';
-import { formatHm } from '../../lib/time';
+import { addDays, formatHm, startOfDay } from '../../lib/time';
 import { rangeLabel } from '../../lib/range';
 import { HISTORY_PERIODS, goalProgressMs, goalStatus, recentPeriods } from '../../lib/stats';
 import { CreateGoalForm, LiveGoalForm } from './GoalForms';
@@ -14,8 +14,8 @@ export function GoalsPage() {
   const settings = useSettings();
   const typeMap = useTypeMap();
   const tagMap = useTagMap();
-  useNow(60_000);
-  const now = Date.now();
+  // 用 useNow 的值：两次刷新之间不变，查询条件才不会每次渲染都变（否则会不停重新查询）
+  const now = useNow(60_000);
   const [openKey, setOpenKey] = useState<string | null>(null);
   const toggle = (k: string) => setOpenKey((cur) => (cur === k ? null : k));
 
@@ -24,7 +24,7 @@ export function GoalsPage() {
   const earliest = Math.min(
     ...(['day', 'week', 'month'] as const).map((m) => recentPeriods(m, now, ws, HISTORY_PERIODS[m]).at(-1)!.from),
   );
-  const records = useRecordsInRange(earliest, now + 1);
+  const records = useRecordsInRange(earliest, addDays(startOfDay(now), 1));
   const firstMs = useFirstRecordMs();
 
   if (!goals || !settings || !typeMap || !tagMap || !records || firstMs === undefined) return null;

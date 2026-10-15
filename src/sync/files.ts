@@ -15,10 +15,8 @@ const KEY_ORDER = [
   'targetMinutes', 'listId', 'text', 'done', 'doneAt', 'slot', 'pinned', 'updatedAt', 'deleted',
   'types', 'tags', 'goals', 'settings', 'records', 'lists', 'items',
 ];
-const rank = (k: string) => {
-  const i = KEY_ORDER.indexOf(k);
-  return i < 0 ? KEY_ORDER.length : i;
-};
+const KEY_RANK = new Map(KEY_ORDER.map((k, i) => [k, i]));
+const rank = (k: string) => KEY_RANK.get(k) ?? KEY_ORDER.length;
 
 export function canonicalize(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(canonicalize);

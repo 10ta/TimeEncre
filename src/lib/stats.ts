@@ -8,8 +8,20 @@ interface RecLike {
   intervals: { start: string; end: string | null }[];
 }
 
+/**
+ * 已结束的记录（没有未结束的段）解析结果与 now 无关，按对象缓存：目标页要对同一批记录按几十个周期反复计算。
+ * 数据库每次查询都返回新对象，记录改了缓存自然失效。
+ */
+const closedSpans = new WeakMap<object, Span[]>();
+function spansOf(r: RecLike, now: number): Span[] {
+  if (r.intervals.some((iv) => iv.end === null)) return recordSpans(r, now);
+  let s = closedSpans.get(r);
+  if (!s) closedSpans.set(r, (s = recordSpans(r, now)));
+  return s;
+}
+
 export function clippedSpans(r: RecLike, from: number, to: number, now: number): Span[] {
-  return recordSpans(r, now)
+  return spansOf(r, now)
     .map((s) => ({ start: Math.max(s.start, from), end: Math.min(s.end, to) }))
     .filter((s) => s.end > s.start);
 }

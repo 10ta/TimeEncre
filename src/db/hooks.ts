@@ -46,9 +46,9 @@ export const useRecord = (id: string) => useLiveQuery(() => db.records.get(id), 
 
 export const useCounts = () =>
   useLiveQuery(async () => ({
-    types: (await db.types.toArray()).filter((x) => !x.deleted).length,
-    tags: (await db.tags.toArray()).filter((x) => !x.deleted).length,
-    records: (await db.records.toArray()).filter((x) => !x.deleted).length,
+    types: await db.types.filter((x) => !x.deleted).count(),
+    tags: await db.tags.filter((x) => !x.deleted).count(),
+    records: await db.records.filter((x) => !x.deleted).count(),
   }), []);
 
 /** 与 [from, to) 有交集的记录：开始于 from 前 7 天之内的，加上所有进行中的 */
@@ -70,8 +70,8 @@ export const useGoals = () =>
 /** 最早一条记录的开始时间；没有记录时为 null */
 export const useFirstRecordMs = () =>
   useLiveQuery(async () => {
-    const all = await db.records.orderBy('startMs').toArray();
-    return all.find((r) => !r.deleted)?.startMs ?? null;
+    // 按开始时间找到第一条没删除的就停，不读整张表
+    return (await db.records.orderBy('startMs').filter((r) => !r.deleted).first())?.startMs ?? null;
   }, []);
 
 export const useDuplicateGroups = (kind: CatalogKind) => useLiveQuery(() => findDuplicateGroups(kind), [kind]);

@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useGoals, useRecordsInRange, useSettings, useTagMap, useTypeMap } from '../../db/hooks';
 import { useNow } from '../../ui/hooks';
-import { formatHm, startOfDay } from '../../lib/time';
+import { addDays, formatHm, startOfDay } from '../../lib/time';
 import { rangeOf } from '../../lib/range';
 import { CURRENT_WORD, STATUS_TEXT, viewGoal } from './goalView';
 import { tr } from '../../i18n';
@@ -12,12 +12,13 @@ export function TodayGoals() {
   const settings = useSettings();
   const typeMap = useTypeMap();
   const tagMap = useTagMap();
-  useNow(30_000);
-  const now = Date.now();
+  // 用 useNow 的值：两次刷新之间不变，查询条件才不会每次渲染都变（否则会不停重新查询）
+  const now = useNow(30_000);
   const ws = settings?.weekStart ?? 1;
   // 覆盖本月和本周（本周可能跨到上个月）
   const from = Math.min(rangeOf('month', now, ws).from, rangeOf('week', now, ws).from, startOfDay(now));
-  const records = useRecordsInRange(from, now + 1);
+  // 上界取明天 0 点：一天之内不变；还没结束的记录由 useRecordsInRange 另外带上
+  const records = useRecordsInRange(from, addDays(startOfDay(now), 1));
 
   if (!goals || !settings || !typeMap || !tagMap || !records || goals.length === 0) return null;
   const order = { day: 0, week: 1, month: 2 } as const;

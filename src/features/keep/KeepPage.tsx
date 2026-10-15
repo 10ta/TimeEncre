@@ -43,7 +43,7 @@ export function KeepPage() {
     if (kind === 'item' && t.kind === 'item') void moveItem(id, t.listId, t.beforeId);
     if (kind === 'list' && t.kind === 'list') void moveList(id, t.beforeId);
   };
-  const { drag, start } = useKeepDrag(onDrop);
+  const { drag, start, ghostRef } = useKeepDrag(onDrop);
 
   const byList = useMemo(() => {
     const m = new Map<string, NonNullable<typeof items>>();
@@ -108,7 +108,7 @@ export function KeepPage() {
         </div>
       )}
       {drag && (
-        <div className="keep-ghost" style={{ left: drag.x + 12, top: drag.y + 8 }} aria-hidden="true">
+        <div ref={ghostRef} className="keep-ghost" style={{ left: drag.x + 12, top: drag.y + 8 }} aria-hidden="true">
           {drag.label}
         </div>
       )}

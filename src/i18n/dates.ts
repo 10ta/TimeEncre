@@ -129,7 +129,8 @@ const dayOfMonthKey = (ms: number) => {
 /** 时间轴刻度：一天中的第 h 点（0–24）。24 小时制 “9:00”；12 小时制 “上午9时” / “9 AM” */
 export function hourLabel(h: number): string {
   if (!getHour12()) return `${h}:00`;
-  return new Intl.DateTimeFormat(locale(), { timeZone: 'UTC', hourCycle: 'h12', hour: 'numeric' }).format(Date.UTC(2000, 0, 1, h % 24));
+  // fmt 先放所选时区再展开 opts，这里的 UTC 会覆盖它（刻度只是“第几点”，与时区无关）
+  return fmt({ timeZone: 'UTC', hourCycle: 'h12', hour: 'numeric' }).format(Date.UTC(2000, 0, 1, h % 24));
 }
 
 /** 本地化的日期（所选时区） */

@@ -61,7 +61,7 @@ describe('合并同名', () => {
     const rec = await startRecord(dup, { startMs: Date.now() - 60_000 });
     await stopRecord(rec);
     await saveGoal({ name: '', typeIds: [dup], tagIds: [], period: 'day', direction: 'atLeast', targetMinutes: 60 });
-    await updateSettings({ pomodoro: { ...defaultSettings().pomodoro, linkedTypeId: dup } });
+    await updateSettings({ pomodoro: { ...defaultSettings().pomodoro, linkedTypeId: dup, breakTypeId: dup } });
 
     expect(await findDuplicateGroups('types')).toHaveLength(1);
     const r = await mergeDuplicates('types');
@@ -69,6 +69,7 @@ describe('合并同名', () => {
     expect((await db.records.get(rec))!.typeId).toBe('default-study'); // 优先保留固定 id
     expect((await db.goals.toArray())[0].typeIds).toEqual(['default-study']);
     expect((await getSettings()).pomodoro.linkedTypeId).toBe('default-study');
+    expect((await getSettings()).pomodoro.breakTypeId).toBe('default-study'); // “休息记为”也跟着改
     expect((await db.types.get(dup))!.deleted).toBe(true);
     expect(await findDuplicateGroups('types')).toHaveLength(0);
   });

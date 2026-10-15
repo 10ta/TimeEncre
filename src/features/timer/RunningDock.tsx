@@ -1,6 +1,6 @@
 // 进行中的计时：所有页面底部的同一条悬浮栏，不占页面布局，出现 / 消失不会让页面内容移动。
 // 点某一项，在它上方弹出编辑面板（任何页面都一样）；暂停 / 停止按钮直接操作。
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useActiveRecords, useTagMap, useTypeMap } from '../../db/hooks';
 import { pauseRecord, resumeRecord, stopRecord } from '../../db/actions';
 import { fromDb } from '../../db/db';
@@ -16,7 +16,8 @@ export function RunningDock() {
   const actives = useActiveRecords();
   const typeMap = useTypeMap();
   const tagMap = useTagMap();
-  const now = useNow(1000, !!actives?.length);
+  // 全部暂停时显示的时长不变，不必每秒刷新
+  const now = useNow(1000, !!actives?.some((r) => r.state === 'running'));
   const [openId, setOpenId] = useState<string | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const count = actives?.length ?? 0;
@@ -28,6 +29,8 @@ export function RunningDock() {
   }, [count]);
 
   const open = actives?.find((r) => r.id === openId);
+  // 每秒刷新时不要给编辑表单一个新对象（表单按对象判断记录有没有变）
+  const openRec = useMemo(() => (open ? fromDb(open) : null), [open]);
   useEffect(() => {
     if (openId && actives && !open) setOpenId(null); // 记录已停止
   }, [openId, actives, open]);
@@ -50,7 +53,7 @@ export function RunningDock() {
             <strong>{openType?.name ?? tr("未知活动")}</strong>
             <span className="dock-sheet-clock">{formatClock(totalMs(recordSpans(open, now)))}</span>
           </header>
-          <LiveRecordForm key={open.id} rec={fromDb(open)} onClose={() => setOpenId(null)} />
+          <LiveRecordForm key={open.id} rec={openRec!} onClose={() => setOpenId(null)} />
         </div>
       )}
       <ul className="dock-items">

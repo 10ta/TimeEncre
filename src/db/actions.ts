@@ -130,9 +130,9 @@ export async function resumeRecord(id: string) {
   const now = Date.now();
   let discarded: TimeRecord[] = [];
   await db.transaction('rw', db.records, db.meta, async () => {
-    discarded = await stopOthersIfExclusive(now, id);
     const row = await db.records.get(id);
-    if (!row || row.state !== 'paused') return;
+    if (!row || row.deleted || row.state !== 'paused') return;
+    discarded = await stopOthersIfExclusive(now, id);
     const r = fromDb(row);
     await db.records.put(
       toDb({
@@ -161,8 +161,16 @@ export async function stopRecordAt(id: string, at: number) {
 
 export const stopRecord = (id: string) => stopRecordAt(id, Date.now());
 
-/** 点类型格子：没在计时 → 开始；正在计时 → 停止；暂停中 → 继续 */
-export async function toggleType(typeId: string) {
+let toggleChain: Promise<unknown> = Promise.resolve();
+
+/** 点类型格子：没在计时 → 开始；正在计时 → 停止；暂停中 → 继续。连点时排队执行，后一次能看到前一次的结果 */
+export function toggleType(typeId: string): Promise<unknown> {
+  const p = toggleChain.then(() => toggleTypeNow(typeId), () => toggleTypeNow(typeId));
+  toggleChain = p.catch(() => undefined);
+  return p;
+}
+
+async function toggleTypeNow(typeId: string) {
   const mine = (await activeRecords())
     .filter((r) => r.typeId === typeId)
     .sort((a, b) => b.startMs - a.startMs);
@@ -470,13 +478,15 @@ export async function findDuplicateGroups(kind: CatalogKind): Promise<CatalogIte
  * 记录、目标、番茄钟设置里对其余项的引用都改指向保留项；其余项标记删除。全部是普通修改，会随同步传到其他设备。
  */
 export async function mergeDuplicates(kind: CatalogKind): Promise<{ groups: number; removed: number; recordsUpdated: number }> {
-  const groups = await findDuplicateGroups(kind);
-  if (groups.length === 0) return { groups: 0, removed: 0, recordsUpdated: 0 };
   const now = stamp();
   return db.transaction('rw', [db.types, db.tags, db.records, db.goals, db.meta], async () => {
+    // 在事务里读：读和写之间同步进来的改动不会被旧数据覆盖
+    const groups = await findDuplicateGroups(kind);
+    if (groups.length === 0) return { groups: 0, removed: 0, recordsUpdated: 0 };
     const records = (await db.records.toArray()).filter((r) => !r.deleted);
-    const refCount = (id: string) =>
-      records.filter((r) => (kind === 'types' ? r.typeId === id : r.tagIds.includes(id))).length;
+    const refs = new Map<string, number>();
+    for (const r of records) for (const id of kind === 'types' ? [r.typeId] : r.tagIds) refs.set(id, (refs.get(id) ?? 0) + 1);
+    const refCount = (id: string) => refs.get(id) ?? 0;
     const remap = new Map<string, string>();
     let removed = 0;
     const defaultIdByName = kind === 'types' ? DEFAULT_NAME_TO_ID : new Map<string, string>();
@@ -528,8 +538,9 @@ export async function mergeDuplicates(kind: CatalogKind): Promise<{ groups: numb
     }
     const s = await getSettings();
     const p = s.pomodoro;
-    if (kind === 'types' && p.linkedTypeId && remap.has(p.linkedTypeId)) {
-      await putSettingsRaw({ ...s, pomodoro: { ...p, linkedTypeId: remap.get(p.linkedTypeId)! }, updatedAt: now });
+    if (kind === 'types' && ((p.linkedTypeId && remap.has(p.linkedTypeId)) || (p.breakTypeId && remap.has(p.breakTypeId)))) {
+      const re = (id: string | null | undefined) => (id ? remap.get(id) ?? id : id);
+      await putSettingsRaw({ ...s, pomodoro: { ...p, linkedTypeId: re(p.linkedTypeId) ?? null, breakTypeId: re(p.breakTypeId) }, updatedAt: now });
     }
     if (kind === 'tags' && (p.linkedTagIds ?? []).some((id) => remap.has(id))) {
       await putSettingsRaw({ ...s, pomodoro: { ...p, linkedTagIds: mapIds(p.linkedTagIds ?? []) }, updatedAt: now });
@@ -549,7 +560,12 @@ export async function mergeDuplicates(kind: CatalogKind): Promise<{ groups: numb
 export async function suggestBackfillRange(now = Date.now()): Promise<{ start: number; end: number }> {
   const MIN = 60_000;
   const floorMin = (t: number) => Math.floor(t / MIN) * MIN;
-  const recent = (await db.records.where('startMs').aboveOrEqual(now - 7 * DAY_MS).toArray()).filter((r) => !r.deleted);
+  const [recentRows, activeRows] = await Promise.all([
+    db.records.where('startMs').aboveOrEqual(now - 7 * DAY_MS).toArray(),
+    db.records.where('active').equals(1).toArray(),
+  ]);
+  // 七天前开始、至今仍在计时 / 暂停的记录也要算上
+  const recent = [...new Map([...recentRows, ...activeRows].map((r) => [r.id, r])).values()].filter((r) => !r.deleted);
   let latestEnd = -Infinity;
   for (const r of recent)
     for (const iv of r.intervals)

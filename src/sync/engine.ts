@@ -3,6 +3,7 @@
 // 推送时如果远端被别人抢先更新（非快进，422），重新拉取合并后重试。
 import { useSyncExternalStore } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { liveQuery } from 'dexie';
 import { db } from '../db/db';
 import { GitHub, GitHubError, parseRepo } from './github';
 import { applyRemoteFile, buildLocalFiles, gitBlobSha, isOurFile } from './files';
@@ -111,8 +112,10 @@ async function runSync(): Promise<SyncResult> {
   setStatus({ phase: 'syncing' });
   try {
     const gh = githubFor(cfg);
+    // 这次同步里已经拉取合并过的远端文件（路径 → blob SHA）：遇到 422 重试时不再重复下载
+    const pulledShas = new Map<string, string>();
     for (let i = 0; i < MAX_ATTEMPTS; i++) {
-      const r = await attempt(gh, cfg);
+      const r = await attempt(gh, cfg, pulledShas);
       if (r !== 'retry') {
         setStatus({
           phase: 'ok',
@@ -128,7 +131,7 @@ async function runSync(): Promise<SyncResult> {
   }
 }
 
-async function attempt(gh: GitHub, cfg: SyncConfig): Promise<SyncResult | 'retry'> {
+async function attempt(gh: GitHub, cfg: SyncConfig, pulledShas: Map<string, string>): Promise<SyncResult | 'retry'> {
   const dir = normDir(cfg.dir);
   const prefix = `${dir}/`;
   const state = await getSyncState();
@@ -151,8 +154,9 @@ async function attempt(gh: GitHub, cfg: SyncConfig): Promise<SyncResult | 'retry
   // 2. 拉取：自上次同步以来远端变过的文件，合并进本地
   let pulled = 0;
   for (const [rel, sha] of remote) {
-    if (state.fileShas[rel] === sha) continue;
+    if (state.fileShas[rel] === sha || pulledShas.get(rel) === sha) continue;
     await applyRemoteFile(rel, await gh.getBlobText(sha));
+    pulledShas.set(rel, sha);
     pulled++;
   }
 
@@ -199,16 +203,53 @@ async function attempt(gh: GitHub, cfg: SyncConfig): Promise<SyncResult | 'retry
 
 // ---------- 待同步计数 ----------
 
+/** 每个文件上次算哈希时的文本和结果：文本没变就不再算（纯 JS 的 SHA-1 在非安全上下文里很慢） */
+const shaCache = new Map<string, { text: string; sha: string }>();
+async function cachedSha(rel: string, text: string): Promise<string> {
+  const hit = shaCache.get(rel);
+  if (hit && hit.text === text) return hit.sha;
+  const sha = await gitBlobSha(text);
+  shaCache.set(rel, { text, sha });
+  return sha;
+}
+
 /** 自上次同步以来本地改动过的文件数；未配置同步时为 null */
 export async function pendingFiles(): Promise<number | null> {
-  // 先完成所有数据库读取，再做哈希计算（liveQuery 依赖读取来追踪变化）
-  const [cfg, state, local] = await Promise.all([getSyncConfig(), getSyncState(), buildLocalFiles()]);
+  // 没配置同步就不必序列化全部数据（配置本身在 meta 表里，配置后会重新计算）
+  const cfg = await getSyncConfig();
   if (!cfg) return null;
+  // 先完成所有数据库读取，再做哈希计算（liveQuery 依赖读取来追踪变化）
+  const [state, local] = await Promise.all([getSyncState(), buildLocalFiles()]);
   let n = 0;
-  for (const [rel, text] of local) if ((await gitBlobSha(text)) !== state.fileShas[rel]) n++;
+  for (const [rel, text] of local) if ((await cachedSha(rel, text)) !== state.fileShas[rel]) n++;
   return n;
 }
 
-export const usePendingFiles = () => useLiveQuery(pendingFiles, []);
+// 顶部徽标、自动同步、设置页都要这个数：共用一个 liveQuery 订阅，数据变了只算一次
+let pendingValue: number | null | undefined;
+const pendingListeners = new Set<() => void>();
+let pendingSub: { unsubscribe(): void } | null = null;
+function subscribePending(l: () => void) {
+  pendingListeners.add(l);
+  pendingSub ??= liveQuery(pendingFiles).subscribe({
+    next: (v) => {
+      pendingValue = v;
+      pendingListeners.forEach((f) => f());
+    },
+    error: () => {
+      /* 计数失败不影响使用，下次数据变化时再算 */
+    },
+  });
+  return () => {
+    pendingListeners.delete(l);
+    if (pendingListeners.size === 0) {
+      pendingSub?.unsubscribe();
+      pendingSub = null;
+      pendingValue = undefined;
+    }
+  };
+}
+
+export const usePendingFiles = () => useSyncExternalStore(subscribePending, () => pendingValue);
 export const useSyncConfig = () => useLiveQuery(getSyncConfig, []);
 export const useSyncState = () => useLiveQuery(getSyncState, []);

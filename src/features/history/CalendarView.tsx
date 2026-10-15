@@ -226,6 +226,19 @@ export function CalendarView({
     for (const d of days) m.set(d, layout((segsByDay.get(d) ?? []).flatMap((s) => blockItems(s, now))));
     return m;
   }, [days, segsByDay, now]);
+  const plansByDay = useMemo(() => {
+    const m = new Map<number, Array<Plan & { lane: number; lanes: number; full: Plan }>>();
+    for (const day of days) {
+      const dayEnd = addDays(day, 1);
+      m.set(
+        day,
+        planLanes(
+          plans.filter((p) => p.end > day && p.start < dayEnd).map((p) => ({ ...p, start: Math.max(p.start, day), end: Math.min(p.end, dayEnd), full: p })),
+        ) as Array<Plan & { lane: number; lanes: number; full: Plan }>,
+      );
+    }
+    return m;
+  }, [days, plans]);
   const blocksRef = useRef(blocksByDay);
   blocksRef.current = blocksByDay;
   const plansRef = useRef(plans);
@@ -310,6 +323,10 @@ export function CalendarView({
     );
   };
 
+  // 全局监听只在挂载时注册一次；松手时要用最新渲染里的 commit（它用到 typeMap、onOpenGap）
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+
   const activate = () => {
     const p = pendingRef.current;
     if (!p) return;
@@ -333,7 +350,10 @@ export function CalendarView({
       lastPointer.current = { x: e.clientX, y: e.clientY };
       const dist = Math.hypot(e.clientX - p.x0, e.clientY - p.y0);
       if (!dragRef.current) {
-        if (dist > MOVE_THRESHOLD_PX) activate();
+        if (dist > MOVE_THRESHOLD_PX) {
+          activate();
+          startLoop();
+        }
         return;
       }
       update();
@@ -344,7 +364,7 @@ export function CalendarView({
       if (p && d) {
         suppressClick.current = true;
         window.setTimeout(() => (suppressClick.current = false), 400);
-        void commit(d);
+        void commitRef.current(d);
       }
       endAll();
     };
@@ -379,11 +399,19 @@ export function CalendarView({
       return dir === 1 && !canNext ? null : dir;
     };
 
+    // 自动滚动 / 翻页的逐帧检查：只在拖动期间运行，拖完自己停下
     let raf = 0;
+    const startLoop = () => {
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
     const tick = () => {
+      if (!dragRef.current) {
+        raf = 0;
+        return;
+      }
       const sc = scrollRef.current;
       const lp = lastPointer.current;
-      if (dragRef.current && sc && lp) {
+      if (sc && lp) {
         const r = sc.getBoundingClientRect();
         // 朝边缘拖进区域才滚，越靠边越快；按下的位置本身就靠边时，区域缩小到“比起点更靠边”
         const y0 = pendingRef.current?.y0 ?? lp.y;
@@ -422,7 +450,6 @@ export function CalendarView({
       }
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', endAll);
@@ -550,9 +577,7 @@ export function CalendarView({
             const recDrag = drag?.kind === 'rec' ? drag : null;
             const piece = recDrag ? clip(recDrag.preview) : null;
             const labelHere = !!piece && day === labelDay;
-            const dayPlans = planLanes(
-              plans.filter((p) => p.end > day && p.start < dayEnd).map((p) => ({ ...p, start: Math.max(p.start, day), end: Math.min(p.end, dayEnd), full: p })),
-            ) as Array<Plan & { lane: number; lanes: number; full: Plan }>;
+            const dayPlans = plansByDay.get(day) ?? [];
             const planW = dayPlans.length ? (isDay ? PLAN_W.day : PLAN_W.week) : '0%';
             return (
               <div key={day} className="cal-col" aria-label={dateText(day)} style={{ '--plan-w': planW } as CSSProperties}>

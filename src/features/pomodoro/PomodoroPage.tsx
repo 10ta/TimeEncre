@@ -37,9 +37,11 @@ export function PomodoroPage() {
   const settings = useSettings();
   const types = useTypes();
   const typeMap = useTypeMap();
-  const now = useNow(250, true);
   const [perm, setPerm] = useState(() => (notificationSupported() ? Notification.permission : 'unsupported'));
   const orphans = useOrphanRecords(pomo);
+  // 只有在倒计时、或有未接管的记录在计时时才需要每 250ms 刷新；空闲 / 暂停时数字不变
+  const ticking = pomo?.status === 'running' || !!orphans?.some((r) => r.state === 'running');
+  const now = useNow(250, ticking);
   const current = useRecord(pomo?.recordId ?? '');
 
   useEffect(() => {

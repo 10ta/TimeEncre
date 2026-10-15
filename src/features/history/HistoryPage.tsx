@@ -36,8 +36,8 @@ export function HistoryPage() {
   const settings = useSettings();
   const typeMap = useTypeMap();
   const tagMap = useTagMap();
-  useNow(30_000);
-  const now = Date.now();
+  // 用 useNow 的值（每 30 秒变一次），下面按天拆分、空档等计算才能缓存起来，日历也不会每次渲染都重新排版
+  const now = useNow(30_000);
 
   const [mode, setMode] = useState<RangeMode>('week');
   const [anchor, setAnchor] = useState(now);
@@ -107,11 +107,37 @@ export function HistoryPage() {
     });
   }, [records, typeMap, tagMap, q]);
 
-  if (!records || !typeMap || !tagMap || !settings || firstMs === undefined) return null;
-
   // 不显示未来的日子
   const visibleTo = Math.min(range.to, addDays(startOfDay(now), 1));
-  const byDay = splitByDay(filtered, range.from, visibleTo, now);
+  const byDay = useMemo(() => splitByDay(filtered, range.from, visibleTo, now), [filtered, range.from, visibleTo, now]);
+  const calDays = useMemo(() => daysIn(range.from, range.to), [range.from, range.to]);
+  // 当前页签范围内的全部未记录时间（跨午夜的不拆开）；搜索时不算
+  const rangeGaps = useMemo(() => {
+    const from = Math.max(range.from, gapFloor);
+    const to = Math.min(range.to, now);
+    if (!records || q || !(from < to)) return [];
+    return gaps(records.flatMap((r) => recordSpans(r, now)), from, to, GAP_MIN_MS);
+  }, [records, range.from, range.to, gapFloor, now, q]);
+  // Keep 里与这段时间有交集的预约
+  const plans = useMemo<Plan[]>(() => {
+    const lm = new Map((keepLists ?? []).map((l) => [l.id, l]));
+    return (keepItems ?? []).flatMap((it) => {
+      const s = slotMs(it);
+      const l = lm.get(it.listId);
+      if (!s || !l || s.end <= range.from || s.start >= range.to) return [];
+      return [{ id: it.id, text: it.text, color: l.color, start: s.start, end: s.end, done: it.done }];
+    });
+  }, [keepLists, keepItems, range.from, range.to]);
+  const calGaps = useMemo(
+    () =>
+      q
+        ? new Map<number, { start: number; end: number }[]>()
+        : dayGaps(byDay, calDays, now, (sp, f, t) => (Math.max(f, gapFloor) < t ? gaps(sp, Math.max(f, gapFloor), t, GAP_MIN_MS) : [])),
+    [q, byDay, calDays, now, gapFloor],
+  );
+
+  if (!records || !typeMap || !tagMap || !settings || firstMs === undefined) return null;
+
   const days = [...byDay.keys()].sort((a, b) => b - a);
   const total = [...byDay.values()].flat().reduce((a, s) => a + s.ms, 0);
 
@@ -132,25 +158,8 @@ export function HistoryPage() {
   // 日 / 周可以用日历视图；月只有列表
   const calendarMode = mode !== 'month';
   const showCalendar = calendarMode && view === 'calendar';
-  const calDays = daysIn(range.from, range.to);
-  // 当前页签范围内的全部未记录时间（跨午夜的不拆开）；搜索时不算
-  const rangeGaps = (() => {
-    const from = Math.max(range.from, gapFloor);
-    const to = Math.min(range.to, now);
-    if (q || !(from < to)) return [];
-    return gaps(records.flatMap((r) => recordSpans(r, now)), from, to, GAP_MIN_MS);
-  })();
   const covered = (g: Span) => !!multi?.some((m) => g.start >= m.start && g.end <= m.end);
 
-  // Keep 里与这段时间有交集的预约
-  const lm = new Map((keepLists ?? []).map((l) => [l.id, l]));
-  const plans: Plan[] = (keepItems ?? []).flatMap((it) => {
-    const s = slotMs(it);
-    const l = lm.get(it.listId);
-    if (!s || !l || s.end <= range.from || s.start >= range.to) return [];
-    return [{ id: it.id, text: it.text, color: l.color, start: s.start, end: s.end, done: it.done }];
-  });
-  const calGaps = q ? new Map<number, { start: number; end: number }[]>() : dayGaps(byDay, calDays, now, (sp, f, t) => (Math.max(f, gapFloor) < t ? gaps(sp, Math.max(f, gapFloor), t, GAP_MIN_MS) : []));
 
   return (
     <div className="page history">

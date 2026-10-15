@@ -15,7 +15,7 @@ export function TypeGrid({
   actives: DbRecord[];
   onOptions: (typeId: string) => void;
 }) {
-  const now = useNow(1000, actives.length > 0);
+  const now = useNow(1000, actives.some((r) => r.state === 'running'));
   const latestByType = new Map<string, DbRecord>();
   for (const r of actives) if (!latestByType.has(r.typeId)) latestByType.set(r.typeId, r);
 

@@ -66,6 +66,7 @@ export function _setZoneForTest(z: string | null, h12 = false) {
   zone = z ?? deviceZone();
   hour12 = h12;
   cache.clear();
+  partsCache.clear();
 }
 
 // ---------- 墙上时间 ⇄ 时间点 ----------
@@ -129,7 +130,19 @@ export function offsetMs(ms: number): number {
  * 当前时区里的墙上时间 → 时间点。月、日、时可以越界（例如 d + 1、m + 1），会自动进位。
  * 夏令时：不存在的时刻（拨快那一小时）顺延到拨快之后；出现两次的时刻（拨慢）取第一次。
  */
+const partsCache = new Map<string, number>();
+
 export function fromParts(y: number, m: number, d: number, h = 0, mi = 0, s = 0): number {
+  const key = `${y},${m},${d},${h},${mi},${s}`;
+  const hit = partsCache.get(key);
+  if (hit !== undefined) return hit;
+  const v = fromPartsUncached(y, m, d, h, mi, s);
+  if (partsCache.size > 4000) partsCache.clear();
+  partsCache.set(key, v);
+  return v;
+}
+
+function fromPartsUncached(y: number, m: number, d: number, h: number, mi: number, s: number): number {
   const u = Date.UTC(y, m - 1, d, h, mi, s);
   const n = new Date(u); // 进位后的规范墙上时间
   const want = [n.getUTCFullYear(), n.getUTCMonth() + 1, n.getUTCDate(), n.getUTCHours(), n.getUTCMinutes(), n.getUTCSeconds()];

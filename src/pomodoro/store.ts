@@ -51,15 +51,21 @@ async function startPhaseRecord(c: M.PomoConfig, phase: M.Phase, startMs: number
 }
 
 async function settleInner(alert: boolean) {
-  const c = await cfg();
-  const now = Date.now();
-  const before = await getPomo();
-  const { state, finished, startedAt } = M.settle(before, c, now);
-  if (finished.length === 0 && state === before) return;
-  for (const f of finished) if (f.recordId) await stopRecordAt(f.recordId, f.endAt);
-  let next = state;
-  if (startedAt !== null && next.status === 'running') next = { ...next, recordId: await startPhaseRecord(c, next.phase, startedAt) };
-  await putPomo(next);
+  // 停止上一段的记录、建下一段的记录、保存状态：放进同一个事务，中途关掉页面不会留下孤儿记录
+  const done = await db.transaction('rw', db.records, db.meta, async () => {
+    const c = await cfg();
+    const now = Date.now();
+    const before = await getPomo();
+    const { state, finished, startedAt } = M.settle(before, c, now);
+    if (finished.length === 0 && state === before) return null;
+    for (const f of finished) if (f.recordId) await stopRecordAt(f.recordId, f.endAt);
+    let next = state;
+    if (startedAt !== null && next.status === 'running') next = { ...next, recordId: await startPhaseRecord(c, next.phase, startedAt) };
+    await putPomo(next);
+    return { c, finished, next };
+  });
+  if (!done) return;
+  const { c, finished, next } = done;
   if (finished.length && alert) {
     const last = finished[finished.length - 1];
     const title = last.phase === 'work' ? tr("🍅 专注结束") : tr("☕ 休息结束");

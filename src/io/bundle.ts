@@ -37,6 +37,29 @@ export interface MergeCount {
   kept: number;
 }
 
+/** 键排序后的 JSON：只用于比较内容 */
+function stable(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stable).join(',')}]`;
+  if (v && typeof v === 'object')
+    return `{${Object.keys(v as object)
+      .filter((k) => (v as Record<string, unknown>)[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stable((v as Record<string, unknown>)[k])}`)
+      .join(',')}}`;
+  return JSON.stringify(v);
+}
+
+/**
+ * 较新者胜出。修改时间精确到秒，两台设备在同一秒改了同一项时时间相同：
+ * 这时按内容比出固定的一方（两边算出来一样），否则两边各留各的，每次同步都互相覆盖。
+ */
+function newer(incoming: { updatedAt: string }, cur: { updatedAt: string }): boolean {
+  const a = fromIso(incoming.updatedAt);
+  const b = fromIso(cur.updatedAt);
+  if (a !== b) return a > b;
+  return stable(incoming) > stable(cur);
+}
+
 /** mergeLww 只需要表的这两个方法；用结构类型避开 Dexie 泛型的协变问题 */
 export interface BulkTable<Row> {
   bulkGet(ids: string[]): Promise<(Row | undefined)[]>;
@@ -56,7 +79,7 @@ export async function mergeLww<T extends { id: string; updatedAt: string }, Row 
     if (!cur) {
       count.added++;
       puts.push(toRow(item));
-    } else if (fromIso(item.updatedAt) > fromIso(cur.updatedAt)) {
+    } else if (newer(toRow(item), cur)) {
       count.updated++;
       puts.push(toRow(item));
     } else {
