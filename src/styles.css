@@ -1930,14 +1930,18 @@ kbd {
 /* ---------- 番茄钟 ---------- */
 
 .pomo-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  /* 按内容换行，而不是按屏幕宽度：圆环 / 阶段切换按钮放不下时设置自动挪到下面，
+     不管侧栏多宽、字号多大、哪种语言都不会叠在一起 */
+  display: flex;
+  flex-wrap: wrap;
   gap: 2.5rem;
-  align-items: start;
+  align-items: flex-start;
   max-width: 980px;
 }
 
 .pomo-main {
+  /* 基准宽度 0 + 最小宽度 = 内容所需（圆环、阶段按钮）：并排时占满剩余空间，放不下时换行 */
+  flex: 1000 1 0;
   display: grid;
   justify-items: center;
   gap: 1.25rem;
@@ -2131,6 +2135,9 @@ kbd {
 }
 
 .pomo-settings {
+  /* 并排时约 300px 宽；换到下面一行时占满整行 */
+  flex: 1 1 300px;
+  min-width: min(100%, 260px);
   padding: 1.25rem;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
@@ -2145,12 +2152,6 @@ kbd {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0 0.75rem;
-}
-
-@media (max-width: 899px) {
-  .pomo-layout {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* ---------- 提示条 ---------- */
