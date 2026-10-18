@@ -48,6 +48,17 @@ function tone(freq: number, at: number, dur: number, type: OscillatorType = 'sin
 }
 
 /**
+ * 某个阶段结束、而下一段没有自动开始时的提示音：同一个音高连响（像闹钟），和“进入”的旋律明显不同。
+ * 专注结束 = 高音连响两组；休息结束 = 低音连响两组。
+ */
+export function endSound(phase: 'work' | 'short' | 'long') {
+  if (!ctx) return;
+  if (ctx.state === 'suspended') void ctx.resume();
+  const f = phase === 'work' ? 987.77 : 587.33;
+  [0, 0.16, 0.32, 0.75, 0.91, 1.07].forEach((t) => tone(f, t, 0.12, 'square', 0.12));
+}
+
+/**
  * 进入某个阶段的提示音，三种听起来不一样：
  * 专注 = 明亮的上行三音；短休息 = 柔和的下行两音；长休息 = 更慢、更长的下行四音。
  */

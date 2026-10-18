@@ -7,7 +7,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type DbRecord } from '../db/db';
 import { getSettings, pauseRecord, resumeRecord, startRecord, stopRecord, stopRecordAt } from '../db/actions';
-import { notify, phaseSound } from '../lib/notify';
+import { endSound, notify, phaseSound } from '../lib/notify';
 import { fromIso } from '../lib/time';
 import * as M from './machine';
 import type { PomoState } from './machine';
@@ -73,8 +73,12 @@ async function settleInner(alert: boolean) {
       last.phase === 'work'
         ? tr("今天已完成 {0} 个番茄。{1}", next.today.count, next.status === 'running' ? tr("休息已自动开始。") : tr("该休息一下了。"))
         : next.status === 'running' ? tr("新的专注已自动开始。") : tr("准备开始下一个番茄。");
-    // 提示音按“接下来进入的阶段”：自动开始了就是进入它，没自动开始就是提醒该进入它了
-    if (c.sound) phaseSound(next.phase);
+    // 下一段自动开始了：播“进入”下一段的提示音（听起来是连续的）；
+    // 没有自动开始：播“结束”的提示音（专注结束 / 休息结束各一种），不会误以为已经进入下一段
+    if (c.sound) {
+      if (next.status === 'running') phaseSound(next.phase);
+      else endSound(last.phase);
+    }
     await notify(title, body);
   }
 }

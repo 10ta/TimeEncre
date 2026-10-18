@@ -4,7 +4,7 @@ import { TagPicker } from '../../ui/fields';
 import { updateSettings } from '../../db/actions';
 import { useNow } from '../../ui/hooks';
 import { formatClock, formatHm, recordSpans, totalMs } from '../../lib/time';
-import { notificationSupported, phaseSound, requestNotificationPermission, unlockAudio } from '../../lib/notify';
+import { endSound, notificationSupported, phaseSound, requestNotificationPermission, unlockAudio } from '../../lib/notify';
 import { autoBreak, autoFocus, durationMs, linkedTags, remainingMs, type Phase } from '../../pomodoro/machine';
 import {
   adoptRecord,
@@ -221,16 +221,16 @@ export function PomodoroPage() {
             <input type="checkbox" checked={cfg.sound} onChange={(e) => setCfg({ sound: e.target.checked })} />
             <span>
               {tr("提示音")}
-              <small>{tr("进入专注、短休息、长休息时各有一种提示音；手动点开始也会响。")}</small>
+              <small>{tr("进入专注、短休息、长休息时各有一种提示音（手动点开始也会响）；某一段结束而下一段没有自动开始时，响“专注结束”或“休息结束”的提示音。")}</small>
             </span>
           </label>
           <div className="row sound-preview">
             <span className="hint">{tr("试听：")}</span>
             {(
               [
-                ['work', tr("专注")],
-                ['short', tr("短休息")],
-                ['long', tr("长休息")],
+                ['work', tr("进入专注")],
+                ['short', tr("进入短休息")],
+                ['long', tr("进入长休息")],
               ] as const
             ).map(([ph, label]) => (
               <button
@@ -240,6 +240,24 @@ export function PomodoroPage() {
                 onClick={() => {
                   unlockAudio();
                   phaseSound(ph);
+                }}
+              >
+                ▶ {label}
+              </button>
+            ))}
+            {(
+              [
+                ['work', tr("专注结束")],
+                ['short', tr("休息结束")],
+              ] as const
+            ).map(([ph, label]) => (
+              <button
+                key={`end-${ph}`}
+                type="button"
+                className="btn is-small"
+                onClick={() => {
+                  unlockAudio();
+                  endSound(ph);
                 }}
               >
                 ▶ {label}
