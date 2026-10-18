@@ -150,11 +150,14 @@ export function LiveRecordForm({
   rec,
   onClose,
   checkOverlapOnMount,
+  notesFirst,
 }: {
   rec: TimeRecord;
   onClose: () => void;
   /** 刚补录完：一打开就检查一次重叠并提示 */
   checkOverlapOnMount?: boolean;
+  /** 刚点格子开始的计时：备注和标签放在最前面（这时最常改的就是它们） */
+  notesFirst?: boolean;
 }) {
   const [snapshot] = useState(rec);
   const [rows, setRows] = useState(() => rowsFromRecord(rec));
@@ -221,25 +224,8 @@ export function LiveRecordForm({
     setSaved(false);
   };
 
-  return (
-    <div
-      ref={formRef}
-      className="inline-form"
-      onBlurCapture={() => {
-        // 任何输入框失焦就立即保存，不等延时
-        flushRows();
-        flushComment();
-      }}
-    >
-      <TypeSelect value={rec.typeId} onChange={(typeId) => void save({ typeId })} />
-      <IntervalsEditor
-        rows={rows}
-        onChange={(r) => {
-          setRows(r);
-          setRowsTouched(true);
-        }}
-        canAdd={rec.state !== 'running'}
-      />
+  const notes = (
+    <>
       <label className="field">
         <span className="field-label">{tr("备注")}</span>
         <textarea
@@ -253,6 +239,30 @@ export function LiveRecordForm({
         />
       </label>
       <TagPicker value={rec.tagIds} onChange={(tagIds) => void save({ tagIds })} />
+    </>
+  );
+
+  return (
+    <div
+      ref={formRef}
+      className="inline-form"
+      onBlurCapture={() => {
+        // 任何输入框失焦就立即保存，不等延时
+        flushRows();
+        flushComment();
+      }}
+    >
+      {notesFirst && notes}
+      <TypeSelect value={rec.typeId} onChange={(typeId) => void save({ typeId })} />
+      <IntervalsEditor
+        rows={rows}
+        onChange={(r) => {
+          setRows(r);
+          setRowsTouched(true);
+        }}
+        canAdd={rec.state !== 'running'}
+      />
+      {!notesFirst && notes}
       {overlap.note && <p className="notice is-warn">{overlap.note}</p>}
       {error && <p className="form-error" role="alert">{error}{tr("（这一处还没有保存）")}</p>}
       <div className="inline-foot">

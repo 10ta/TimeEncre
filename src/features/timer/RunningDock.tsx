@@ -10,6 +10,7 @@ import { useOutsideClose } from '../../ui/useOutsideClose';
 import { commitAndClose } from '../../ui/commitAndClose';
 import { formatClock, recordSpans, totalMs } from '../../lib/time';
 import { LiveRecordForm } from '../records/RecordForms';
+import { onOpenRecordSheet } from '../../ui/recordSheet';
 import { tr } from '../../i18n';
 
 export function RunningDock() {
@@ -28,11 +29,25 @@ export function RunningDock() {
     return () => document.body.classList.remove('has-dock');
   }, [count]);
 
+  // 计时页点格子开始后会请求打开新记录的面板；那一刻记录可能还没出现在列表里，先别当作“已停止”关掉
+  const seen = useRef(false);
+  /** 从格子刚开始的那条：表单里备注和标签放前面 */
+  const [freshId, setFreshId] = useState<string | null>(null);
+  useEffect(
+    () =>
+      onOpenRecordSheet((id) => {
+        seen.current = false;
+        setFreshId(id);
+        setOpenId(id);
+      }),
+    [],
+  );
   const open = actives?.find((r) => r.id === openId);
+  if (open) seen.current = true;
   // 每秒刷新时不要给编辑表单一个新对象（表单按对象判断记录有没有变）
   const openRec = useMemo(() => (open ? fromDb(open) : null), [open]);
   useEffect(() => {
-    if (openId && actives && !open) setOpenId(null); // 记录已停止
+    if (openId && actives && !open && seen.current) setOpenId(null); // 记录已停止
   }, [openId, actives, open]);
   useOutsideClose(!!open, sheetRef, () => setOpenId(null));
 
@@ -53,7 +68,7 @@ export function RunningDock() {
             <strong>{openType?.name ?? tr("未知活动")}</strong>
             <span className="dock-sheet-clock">{formatClock(totalMs(recordSpans(open, now)))}</span>
           </header>
-          <LiveRecordForm key={open.id} rec={openRec!} onClose={() => setOpenId(null)} />
+          <LiveRecordForm key={open.id} rec={openRec!} notesFirst={open.id === freshId} onClose={() => setOpenId(null)} />
         </div>
       )}
       <ul className="dock-items">

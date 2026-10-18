@@ -511,4 +511,6 @@ export const fr: Record<string, string> = {
   "只有设了目标（只针对这一项）的活动，箭头才分红绿，并显示 ✓ / ✗。点一行看详情。": "Seules les activités ayant un objectif propre ont des flèches vertes ou rouges et des ✓ / ✗. Cliquez une ligne pour le détail.",
   "到历史里查看这些空白 ›": "Voir ces trous dans l’historique ›",
   "{0}：日均 {1}": "{0} : {1} par jour",
+  "点格子开始计时后，直接打开编辑面板": "Ouvrir le panneau d’édition après avoir lancé un chrono depuis une tuile",
+  "可以马上写备注、加标签；不需要就点空白处收起，计时照常进行": "Pour ajouter tout de suite une note ou des tags ; sinon, touchez à côté pour le fermer, le chrono continue.",
 };

@@ -2,6 +2,8 @@ import type { CSSProperties } from 'react';
 import type { CatalogItem } from '../../schema';
 import type { DbRecord } from '../../db/db';
 import { toggleType } from '../../db/actions';
+import { useSettings } from '../../db/hooks';
+import { openRecordSheet } from '../../ui/recordSheet';
 import { useLongPress, useNow } from '../../ui/hooks';
 import { formatClock, recordSpans, totalMs } from '../../lib/time';
 import { tr } from '../../i18n';
@@ -45,7 +47,14 @@ function Tile({
   now: number;
   onOptions: () => void;
 }) {
-  const press = useLongPress(onOptions, () => void toggleType(type.id));
+  const settings = useSettings();
+  const openOnStart = settings?.openSheetOnStart ?? true;
+  // 点一下：开始 / 停止 / 继续；新开始的计时直接弹出编辑面板（可以写备注、加标签，点外面就收起）
+  const press = useLongPress(onOptions, () =>
+    void toggleType(type.id).then((r) => {
+      if (typeof r === 'string' && openOnStart) openRecordSheet(r);
+    }),
+  );
   const stateLabel = active ? (active.state === 'running' ? tr("计时中，点击停止") : tr("已暂停，点击继续")) : tr("点击开始");
   return (
     <li>

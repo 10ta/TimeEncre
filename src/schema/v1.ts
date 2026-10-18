@@ -94,6 +94,8 @@ export const SettingsV1 = z.looseObject({
   /** 停止时总时长不足 discardShortSec 秒的计时自动作废（防误触）；缺省视为开启、30 秒 */
   discardShort: z.boolean().optional(),
   discardShortSec: z.number().int().positive().optional(),
+  /** 点计时页的格子开始计时后，直接打开这条记录的编辑面板（缺省视为开启） */
+  openSheetOnStart: z.boolean().optional(),
   pomodoro: PomodoroV1,
   stats: StatsSettingsV1.optional(),
 });

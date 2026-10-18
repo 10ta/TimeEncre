@@ -56,6 +56,17 @@ export function SettingsPage() {
             <small>{tr("关闭后，开始一个新活动会自动停止正在进行的活动")}</small>
           </span>
         </label>
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={settings.openSheetOnStart ?? true}
+            onChange={(e) => void updateSettings({ openSheetOnStart: e.target.checked })}
+          />
+          <span>
+            {tr("点格子开始计时后，直接打开编辑面板")}
+            <small>{tr("可以马上写备注、加标签；不需要就点空白处收起，计时照常进行")}</small>
+          </span>
+        </label>
         <div className="toggle">
           <input
             id="discard-short"
