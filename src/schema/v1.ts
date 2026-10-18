@@ -71,6 +71,21 @@ export const PomodoroV1 = z.looseObject({
   sound: z.boolean().default(true),
 });
 
+/** 统计页的自定义指标：一组活动 / 标签，时长越长越好（例如“学习质量” = 学习 + 阅读 + 标签 TCF） */
+export const StatsMetricV1 = z.looseObject({
+  id: z.string(),
+  name: z.string().default(''),
+  typeIds: z.array(z.string()).default([]),
+  tagIds: z.array(z.string()).default([]),
+});
+
+/** 统计页的设置（v1 内的增量字段） */
+export const StatsSettingsV1 = z.looseObject({
+  /** 作息用哪个活动当“睡眠”；未设置时用默认的睡眠活动 */
+  sleepTypeId: z.string().nullable().optional(),
+  metrics: z.array(StatsMetricV1).optional(),
+});
+
 export const SettingsV1 = z.looseObject({
   updatedAt: IsoTime,
   /** 0 = 周日，1 = 周一 */
@@ -80,6 +95,7 @@ export const SettingsV1 = z.looseObject({
   discardShort: z.boolean().optional(),
   discardShortSec: z.number().int().positive().optional(),
   pomodoro: PomodoroV1,
+  stats: StatsSettingsV1.optional(),
 });
 
 // ---------- Keep：清单与条目 ----------

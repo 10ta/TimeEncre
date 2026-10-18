@@ -545,6 +545,18 @@ export async function mergeDuplicates(kind: CatalogKind): Promise<{ groups: numb
     if (kind === 'tags' && (p.linkedTagIds ?? []).some((id) => remap.has(id))) {
       await putSettingsRaw({ ...s, pomodoro: { ...p, linkedTagIds: mapIds(p.linkedTagIds ?? []) }, updatedAt: now });
     }
+    // 统计页的作息活动、自定义指标里的引用也改指向保留项
+    const s2 = await getSettings();
+    const st = s2.stats;
+    if (st) {
+      const metrics = st.metrics?.map((m) =>
+        kind === 'types' ? { ...m, typeIds: mapIds(m.typeIds) } : { ...m, tagIds: mapIds(m.tagIds) },
+      );
+      const sleepTypeId = kind === 'types' && st.sleepTypeId ? remap.get(st.sleepTypeId) ?? st.sleepTypeId : st.sleepTypeId;
+      if (JSON.stringify(metrics) !== JSON.stringify(st.metrics) || sleepTypeId !== st.sleepTypeId) {
+        await putSettingsRaw({ ...s2, stats: { ...st, metrics, sleepTypeId }, updatedAt: now });
+      }
+    }
     return { groups: groups.length, removed, recordsUpdated };
   });
 }

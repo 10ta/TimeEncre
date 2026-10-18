@@ -1,5 +1,6 @@
 // 手写 SVG 图表：环形图、每日堆叠柱、单日时间轴。颜色全部来自类型颜色。
 import type { ReactNode } from 'react';
+import type React from 'react';
 import { addDays, formatHm } from '../../lib/time';
 import { dayOfMonth, hourLabel, shortDate, weekdayNarrow } from '../../i18n/dates';
 import { fromParts, getHour12, zparts } from '../../lib/zone';
@@ -198,6 +199,90 @@ export function DayTimeline({
             {it.label} {formatHm(it.end - it.start)}
           </title>
         </rect>
+      ))}
+    </svg>
+  );
+}
+
+/** 迷你折线：一行里看最近几期的走势；空值（还没开始用）断开 */
+export function Sparkline({ values, color, label }: { values: Array<number | null>; color: string; label: string }) {
+  const W = 84;
+  const Hh = 22;
+  const pad = 3;
+  const nums = values.filter((v): v is number => v != null);
+  if (nums.length < 2) return <span className="spark is-empty" aria-hidden="true" />;
+  const max = Math.max(...nums, 1);
+  const x = (i: number) => pad + (i / (values.length - 1)) * (W - 2 * pad);
+  const y = (v: number) => Hh - pad - (v / max) * (Hh - 2 * pad);
+  let d = '';
+  let pen = false;
+  values.forEach((v, i) => {
+    if (v == null) {
+      pen = false;
+      return;
+    }
+    d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
+    pen = true;
+  });
+  const last = values.length - 1;
+  const lv = values[last];
+  return (
+    <svg className="spark" viewBox={`0 0 ${W} ${Hh}`} role="img" aria-label={label} style={{ '--c': color } as React.CSSProperties}>
+      <path d={d} fill="none" />
+      {lv != null && <circle cx={x(last)} cy={y(lv)} r="2.4" />}
+    </svg>
+  );
+}
+
+/** 展开后的大折线图：每期一个点，带数值 */
+export function LineChart({
+  values,
+  labels,
+  color,
+  format,
+  label,
+}: {
+  values: Array<number | null>;
+  labels: string[];
+  color: string;
+  format: (v: number) => string;
+  label: string;
+}) {
+  const W = 640;
+  const Hh = 170;
+  const pad = { l: 12, r: 12, t: 22, b: 26 };
+  const nums = values.filter((v): v is number => v != null);
+  const max = Math.max(...nums, 1);
+  const x = (i: number) => pad.l + (values.length === 1 ? 0.5 : i / (values.length - 1)) * (W - pad.l - pad.r);
+  const y = (v: number) => pad.t + (1 - v / max) * (Hh - pad.t - pad.b);
+  let d = '';
+  let pen = false;
+  values.forEach((v, i) => {
+    if (v == null) {
+      pen = false;
+      return;
+    }
+    d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
+    pen = true;
+  });
+  return (
+    <svg className="linechart" viewBox={`0 0 ${W} ${Hh}`} role="img" aria-label={label} style={{ '--c': color } as React.CSSProperties}>
+      <line x1={pad.l} x2={W - pad.r} y1={Hh - pad.b} y2={Hh - pad.b} className="grid" />
+      <path d={d} fill="none" className="line" />
+      {values.map((v, i) => (
+        <g key={i}>
+          {v != null && (
+            <>
+              <circle cx={x(i)} cy={y(v)} r={i === values.length - 1 ? 4 : 3} className={i === values.length - 1 ? 'is-last' : undefined} />
+              <text x={x(i)} y={y(v) - 8} className="val" textAnchor={i === 0 ? 'start' : i === values.length - 1 ? 'end' : 'middle'}>
+                {format(v)}
+              </text>
+            </>
+          )}
+          <text x={x(i)} y={Hh - 8} className="axis" textAnchor={i === 0 ? 'start' : i === values.length - 1 ? 'end' : 'middle'}>
+            {labels[i]}
+          </text>
+        </g>
       ))}
     </svg>
   );

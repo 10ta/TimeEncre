@@ -17,6 +17,7 @@ import {
   RecordV1,
   RecordsFileV1,
   SettingsV1,
+  StatsMetricV1,
 } from './v1';
 import { tr } from '../i18n';
 
@@ -30,6 +31,7 @@ export type CatalogItem = z.infer<typeof CatalogItemV1>;
 export type TimeRecord = z.infer<typeof RecordV1>;
 export type Goal = z.infer<typeof GoalV1>;
 export type Settings = z.infer<typeof SettingsV1>;
+export type StatsMetric = z.infer<typeof StatsMetricV1>;
 export type ProfileFile = z.infer<typeof ProfileFileV1>;
 export type RecordsFile = z.infer<typeof RecordsFileV1>;
 export type BundleFile = z.infer<typeof BundleFileV1>;
