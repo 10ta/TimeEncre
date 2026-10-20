@@ -4,7 +4,7 @@
 import { db, fromDb, toDb, type DbRecord } from '../db/db';
 import { getSettings, putSettingsRaw } from '../db/actions';
 import { CURRENT_SCHEMA_VERSION, parseKeepFile, parseProfileFile, parseRecordsFile } from '../schema';
-import { mergeLww } from '../io/bundle';
+import { mergeLww, reconcileRecord } from '../io/bundle';
 import { fromIso } from '../lib/time';
 import { sha1Hex } from '../lib/sha1';
 import { tr } from '../i18n';
@@ -128,6 +128,6 @@ export async function applyRemoteFile(rel: string, text: string): Promise<void> 
     });
   } else if (RECORDS_RE.test(rel)) {
     const f = parseRecordsFile(raw);
-    await db.transaction('rw', db.records, () => mergeLww(db.records, f.records, toDb));
+    await db.transaction('rw', db.records, () => mergeLww(db.records, f.records, toDb, reconcileRecord));
   }
 }
