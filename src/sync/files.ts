@@ -93,12 +93,25 @@ export async function buildLocalFiles(): Promise<Map<string, string>> {
   }
   for (const [month, list] of [...months].sort()) {
     list.sort((a, b) => a.startMs - b.startMs || (a.id < b.id ? -1 : 1));
-    files.set(
-      `records/${month}.json`,
-      serialize({ schemaVersion: CURRENT_SCHEMA_VERSION, kind: 'records', month, records: list.map(fromDb) }),
-    );
+    files.set(`records/${month}.json`, monthText(month, list));
   }
+  for (const m of monthCache.keys()) if (!months.has(m)) monthCache.delete(m);
   return files;
+}
+
+/**
+ * 月份文件的文本缓存：每次写库都会重建全部文件（待同步计数靠它），而一次改动通常只碰一个月。
+ * 指纹是原生 JSON.stringify（比规范化 + 缩进快得多）；指纹完全相同 ⇒ 数据完全相同 ⇒ 规范化文本也相同，
+ * 所以命中缓存不会拿到旧内容。键顺序变了只会少命中一次，不影响正确性。
+ */
+const monthCache = new Map<string, { fp: string; text: string }>();
+function monthText(month: string, list: DbRecord[]): string {
+  const fp = JSON.stringify(list);
+  const hit = monthCache.get(month);
+  if (hit && hit.fp === fp) return hit.text;
+  const text = serialize({ schemaVersion: CURRENT_SCHEMA_VERSION, kind: 'records', month, records: list.map(fromDb) });
+  monthCache.set(month, { fp, text });
+  return text;
 }
 
 /** 把远端文件按“较新者胜出”合并进本地 */

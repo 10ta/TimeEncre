@@ -3,6 +3,8 @@
 import { addDays, recordSpans, startOfDay, type Span } from './time';
 import { daysIn, rangeOf, shiftAnchor, type Range, type RangeMode } from './range';
 import { fromParts, zparts } from './zone';
+import { GAP_MIN_MS } from './gaps';
+import { gaps } from './segments';
 import { clippedSpans, goalProgressMs, goalStatus, unionMs, type GoalLike, type GoalStatus } from './stats';
 
 export interface RecLike {
@@ -89,13 +91,17 @@ export function unionTotal(records: RecLike[], from: number, to: number, now: nu
   return unionMs(records.flatMap((r) => clippedSpans(r, from, to, now)));
 }
 
-/** 未记录：实际流逝（不早于第一条记录、不晚于现在）中没被任何记录覆盖的时间 */
+/**
+ * 未记录：实际流逝（不早于第一条记录、不晚于现在）中没被任何记录覆盖的空档之和。
+ * 和历史页“空档”同一口径：短于 GAP_MIN_MS 的只是停止 / 开始的秒级误差，不算，
+ * 否则统计页会报出历史页里找不到的未记录时间。
+ */
 export function untrackedIn(records: RecLike[], from: number, to: number, now: number, firstMs: number | null): number {
   if (firstMs == null) return 0;
   const a = Math.max(from, firstMs);
   const b = Math.min(to, now);
   if (b <= a) return 0;
-  return b - a - unionTotal(records, a, b, now);
+  return gaps(records.flatMap((r) => clippedSpans(r, a, b, now)), a, b, GAP_MIN_MS).reduce((t, g) => t + g.end - g.start, 0);
 }
 
 // ---------- 趋势 ----------

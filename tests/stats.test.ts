@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { goalProgressMs, goalStatus, recentPeriods, sumByTag, sumByType, unionMs, untrackedMs } from '../src/lib/stats';
+import { goalProgressMs, goalStatus, recentPeriods, unionMs } from '../src/lib/stats';
 import { toIso } from '../src/lib/time';
 
 const H = 3600_000;
@@ -17,22 +17,7 @@ describe('统计', () => {
   ];
   const from = at(2, 0), to = at(3, 0), now = at(2, 19);
 
-  it('按类型裁剪到当天', () => {
-    const m = sumByType(rs, from, to, now);
-    expect(m.get('sleep')).toBe(7 * H);
-    expect(m.get('work')).toBe(3 * H);
-    expect(m.get('commute')).toBe(1 * H);
-  });
-
-  it('按标签：一条记录可计入多个标签，无标签归空键', () => {
-    const m = sumByTag(rs, from, to, now);
-    expect(m.get('tcf')).toBe(3 * H);
-    expect(m.get('')).toBe(7 * H);
-  });
-
-  it('未记录时间按并集计算，截止到现在', () => {
-    // 已过 19h；覆盖：0-7、9-13、18-19 = 12h
-    expect(untrackedMs(rs, from, to, now)).toBe(7 * H);
+  it('区间并集：重叠只算一次', () => {
     expect(unionMs([{ start: 0, end: 10 }, { start: 5, end: 20 }, { start: 30, end: 40 }])).toBe(30);
   });
 

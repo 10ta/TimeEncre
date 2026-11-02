@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { db } from '../src/db/db';
-import { createManualRecord, findOverlaps, saveRecord, startRecord, validateIntervals } from '../src/db/actions';
+import { createManualRecord, findOverlaps, patchRecord, startRecord, validateIntervals } from '../src/db/actions';
 import { fromIso } from '../src/lib/time';
 
 const H = 3600_000;
@@ -39,7 +39,7 @@ describe('编辑与补录', () => {
   it('编辑进行中的记录：保持进行中，月份索引随开始时间更新', async () => {
     const id = await startRecord('x');
     const lastMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 15, 9).getTime();
-    await saveRecord(id, { typeId: 'y', comment: 'c', tagIds: [], intervals: [{ start: lastMonth, end: null }] });
+    await patchRecord(id, { typeId: 'y', comment: 'c', tagIds: [], intervals: [{ start: lastMonth, end: null }] });
     const r = (await db.records.get(id))!;
     expect(r.state).toBe('running');
     expect(r.typeId).toBe('y');

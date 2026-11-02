@@ -57,6 +57,17 @@ describe('平均与比较', () => {
     expect(untrackedIn(rs, at(15, 0), at(16, 0), at(15, 12), at(15, 6))).toBe(4 * H);
     expect(totalsBy(rs, at(15, 0), at(16, 0), at(15, 12), (r) => [r.typeId]).get('a')).toBe(2 * H);
   });
+
+  it('未记录：和历史页同一口径，短于 1 分钟的接缝不算', () => {
+    const s = 1000;
+    // 8:00–10:00、10:00:30–12:00（30 秒接缝）、12:05–13:00（5 分钟空档）
+    const rs = [
+      rec('a', [at(15, 8), at(15, 10)]),
+      rec('a', [at(15, 10) + 30 * s, at(15, 12)]),
+      rec('a', [at(15, 12, 5), at(15, 13)]),
+    ];
+    expect(untrackedIn(rs, at(15, 8), at(15, 13), at(15, 13), at(15, 8))).toBe(5 * 60 * s);
+  });
 });
 
 describe('目标完成情况', () => {

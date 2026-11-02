@@ -28,30 +28,6 @@ export function clippedSpans(r: RecLike, from: number, to: number, now: number):
 
 const spanSum = (spans: Span[]) => spans.reduce((a, s) => a + (s.end - s.start), 0);
 
-/** 按键汇总；一条记录可以属于多个键（标签） */
-export function sumBy<R extends RecLike>(
-  records: R[],
-  from: number,
-  to: number,
-  now: number,
-  keysOf: (r: R) => string[],
-): Map<string, number> {
-  const out = new Map<string, number>();
-  for (const r of records) {
-    const ms = spanSum(clippedSpans(r, from, to, now));
-    if (ms <= 0) continue;
-    for (const k of keysOf(r)) out.set(k, (out.get(k) ?? 0) + ms);
-  }
-  return out;
-}
-
-export const sumByType = <R extends RecLike>(rs: R[], from: number, to: number, now: number) =>
-  sumBy(rs, from, to, now, (r) => [r.typeId]);
-
-/** 没有标签的记录归到 '' */
-export const sumByTag = <R extends RecLike>(rs: R[], from: number, to: number, now: number) =>
-  sumBy(rs, from, to, now, (r) => (r.tagIds.length ? r.tagIds : ['']));
-
 /** 区间并集的总长度（同时进行的记录只算一次） */
 export function unionMs(spans: Span[]): number {
   const sorted = [...spans].sort((a, b) => a.start - b.start);
@@ -67,13 +43,6 @@ export function unionMs(spans: Span[]): number {
   }
   if (curE > curS) total += curE - curS;
   return total;
-}
-
-/** 实际流逝时间（截止到 now）中没有被任何记录覆盖的部分 */
-export function untrackedMs(records: RecLike[], from: number, to: number, now: number): number {
-  const end = Math.min(to, now);
-  if (end <= from) return 0;
-  return end - from - unionMs(records.flatMap((r) => clippedSpans(r, from, end, now)));
 }
 
 // ---------- 目标 ----------

@@ -1,80 +1,96 @@
 # TimeEncre
 
-单用户的时间记录 Web App，参考 A Time Logger 2。纯静态站点，数据存在浏览器本地（IndexedDB），
-可同步到你自己的**私有** GitHub 数据仓库的 `TimeEncre/` 目录。
+**English** · [简体中文](README.zh-CN.md)
 
-## 当前进度
+A single-user time logger in the style of A Time Logger 2 — static PWA, data synced to your own private GitHub repo.
 
-| 阶段 | 内容 | 状态 |
-|---|---|---|
-| P1 | 数据结构与迁移、本地存储、计时页、类型与标签、ATL2 导入、JSON 备份 | ✅ |
-| P2 | GitHub 数据仓库同步 | ✅ |
-| P3 | 历史页（浏览、搜索、逐段编辑、补录、空白时段） | ✅ |
-| P4 | 统计（环形图、未记录时间、按标签、每日分布、时间轴）、目标 | ✅ |
-| P5 | 番茄钟（自动记录、后台精确结算）、PWA（安装、离线、更新提示）、通知 | ✅ |
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Live: timeencre.pages.dev](https://img.shields.io/badge/live-timeencre.pages.dev-orange)](https://timeencre.pages.dev)
 
-## 本地运行
+Live: <https://timeencre.pages.dev> — an empty shell: whatever you record there stays in your own browser.
+
+## Contents
+
+- [Why TimeEncre?](#-why-timeencre)
+- [Highlights](#-highlights)
+- [Quick Start](#-quick-start)
+- [Deployment](#-deployment)
+- [Usage](#-usage)
+- [Configuration](#-configuration)
+- [Update & Maintenance](#-update--maintenance)
+- [How It Works](#-how-it-works)
+- [Project Structure](#-project-structure)
+- [Development](#-development)
+- [Security](#-security)
+- [Limitations](#-limitations)
+- [Documentation](#-documentation)
+- [License](#-license)
+
+## 💡 Why TimeEncre?
+
+Time-tracking apps keep your log in their cloud or on one phone. TimeEncre runs entirely in the browser, stores everything in IndexedDB, and syncs it as readable JSON files to a private GitHub repo you own — no server, no account.
+
+- ✅ Good fit: one person logging their whole day across several devices, who wants to own the raw data.
+- ❌ Not a fit: teams, shared projects or billing timesheets — there are no users, roles or sharing. The UI is Chinese and French only.
+
+## ✨ Highlights
+
+- **One-tap timer** — tap an activity tile to start; pause, resume and stop from a dock at the bottom of every page.
+- **Calendar history** — a 24-hour timeline per day or week; drag blocks to move or resize them, drag in empty space to backfill.
+- **Untracked time you can fix in bulk** — gaps of a minute or more are shown, and one button selects them all to extend the previous block, pull the next one back, or log them as an activity.
+- **Statistics and goals** — totals, daily averages, comparison with the previous period, trend lines, sleep rhythm, weekday × hour heatmaps; "at least / at most" goals per day, week or month.
+- **Pomodoro that logs itself** — focus (and optionally breaks) become records automatically, settled at the exact end time even if the tab was closed.
+- **Keep** — checklists whose items can reserve a time slot shown beside your records.
+- **Your data, in Git** — one commit per sync, deterministic JSON, readable diffs; imports A Time Logger 2 backups (`.ttbkp`).
+- **Installable and offline** — PWA with an in-app update prompt.
+
+## 🚀 Quick Start
+
+Requires Node.js 22 (see `.node-version`).
 
 ```bash
+git clone https://github.com/10ta/timeencre.git
+cd timeencre
 npm install
-npm run dev      # 开发
-npm test         # 单元测试
-npm run build    # 产物在 dist/
+npm run dev
 ```
 
-## 部署
+Open http://localhost:5173 — you should see the first-run screen offering to start with common activities, import from A Time Logger 2, restore from a GitHub data repo, or start from scratch.
 
-纯静态站点：没有后端、没有环境变量，数据在浏览器和你的私有数据仓库里。同一份代码可以同时部署到
-Vercel 和 Cloudflare Pages（以及 GitHub Pages、自己的服务器），每次 push 到 `main` 都会自动重新部署。
-Node 版本固定为 22（`.node-version` 和 `package.json` 的 `engines`，两个平台都会读取）。
+## 🚢 Deployment
 
-> ⚠️ **授权影响先说在前面**：连接 GitHub 时，Vercel 和 Cloudflare 会请求安装它们的 GitHub App。
-> 在授权页选择 **Only select repositories**，只勾选这个**代码仓库**。**不要**把私有数据仓库授权给它们——
-> 部署用不到数据仓库，授权了就等于让第三方平台也能读取你的私密数据。
+A pure static site: no backend, no environment variables. Every push to `main` redeploys. The same build works at a root domain or any sub-path (`base: './'` in `vite.config.ts`), and uses hash routes (`#/history`), so no rewrite rules are needed.
 
-### Vercel
+> [!IMPORTANT]
+> When Vercel or Cloudflare asks to install its GitHub App, choose **Only select repositories** and pick **this code repo only**. Never grant it your private data repo — deployment doesn't need it, and granting it lets a third party read your data.
 
-1. 登录 [vercel.com](https://vercel.com)，用 GitHub 账号登录即可。
-2. **Add New… → Project**，在 *Import Git Repository* 里找到本仓库，点 **Import**。
-   第一次会要求安装 Vercel 的 GitHub App，按上面的提示只授权这个仓库。
-3. 配置页：
-   - **Framework Preset**：Vite（一般会自动识别）
-   - **Build Command**：`npm run build`
-   - **Output Directory**：`dist`
-   - **Install Command**：`npm install`
-   - 环境变量：不需要
-4. 点 **Deploy**，一两分钟后得到 `xxx.vercel.app` 地址。
-5. 可选：**Settings → Domains** 绑定自己的域名。`*.vercel.app` 在中国大陆访问不稳定，建议绑定。
+| Setting | Value |
+|---|---|
+| Build command | `npm run build` |
+| Output directory | `dist` |
+| Node.js | 22 (read from `.node-version` and `package.json` `engines`) |
+| Environment variables | none |
 
 ### Cloudflare Pages
 
-1. 登录 [Cloudflare 控制台](https://dash.cloudflare.com)，进入 **Workers & Pages**。
-2. **Create**（创建）→ 选 **Pages** 标签 → **Connect to Git**（导入现有 Git 仓库）。
-   第一次会要求安装 Cloudflare 的 GitHub App，同样只授权这个仓库。
-3. 选中本仓库 → **Begin setup**，填写：
-   - **Project name**：随意，会成为 `项目名.pages.dev`
-   - **Production branch**：`main`
-   - **Framework preset**：选 Vite / React (Vite)，或选 None 后手动填下面两项
-   - **Build command**：`npm run build`
-   - **Build output directory**：`dist`
-   - 环境变量：不需要（如果构建日志显示 Node 版本低于 22，加一个 `NODE_VERSION` = `22`）
-4. **Save and Deploy**。
-5. 可选：项目的 **Custom domains** 绑定自己的域名（域名托管在 Cloudflare 时会自动配置 DNS）。
+1. **Workers & Pages → Create → Pages → Connect to Git**, select this repo.
+2. Production branch `main`, framework preset **Vite** (or **None**), then the build command and output directory from the table above.
+3. **Save and Deploy**. The site appears at `<project>.pages.dev`.
+4. Optional: **Custom domains**. If the build log shows a Node version below 22, add the variable `NODE_VERSION` = `22`.
 
-### 部署之后
+### Vercel
 
-- 两个平台都会为其他分支和 Pull Request 生成预览地址，这些地址是公开的，但和正式站点一样只是空壳。
-- **每个域名的浏览器存储是独立的**：在 Vercel 地址和 Cloudflare 地址上，各需要在设置里连接一次 GitHub 数据仓库，
-  之后两边通过仓库同步。新设备上首次打开选“从 GitHub 数据仓库恢复”。
-- 需要 HTTPS 的功能（安装为 App、离线、手机通知）在这两个平台上都直接可用。
-- 用 hash 路由（`#/history` 这类地址），不需要配置任何重写规则。
+1. **Add New… → Project**, import this repo.
+2. Framework preset **Vite**; build command, output directory as above; install command `npm install`.
+3. **Deploy**. The site appears at `<project>.vercel.app`.
+4. Optional: **Settings → Domains**. `*.vercel.app` is unreliable from mainland China; a custom domain helps.
 
-### 其他方式
+### Other hosts
 
-- **GitHub Pages**：构建后发布 `dist/`，`base: './'` 支持任意子路径。
-- **自己的服务器**：只需托管 `dist/` 静态文件。Caddy 示例（子路径）：
+- **GitHub Pages / any static host**: publish `dist/`.
+- **Your own server** — Caddy, sub-path example:
 
-```
+```caddyfile
 example.com {
     handle_path /timeencre/* {
         root * /srv/timeencre/dist
@@ -83,144 +99,146 @@ example.com {
 }
 ```
 
-通过 http 局域网地址访问时，计时、统计、同步照常可用，但浏览器不允许安装为 App、离线缓存和手机通知。
+Over plain `http://` (e.g. a LAN IP), logging, stats and sync still work, but browsers block install, offline cache and notifications.
 
-## 数据格式
+## 🧭 Usage
 
-全部是 JSON。时间为带时区的 ISO 8601，id 为 UUIDv7，颜色为 `#rrggbb`，时长不存储、由区间计算。
-每个文件都有 `schemaVersion`，读取时经 `src/schema/index.ts` 的迁移链升级到当前版本；
-遇到比程序新的版本会拒绝写入。结构定义见 `src/schema/v1.ts`。
+UI labels below are given as 中文 / Français.
 
-数据仓库中的布局：
+### Start on a new device
 
-```
-TimeEncre/
-  profile.json            类型、标签、目标、设置
-  records/2026-10.json    按记录开始月份分文件
-  keep.json               Keep 的清单与条目（用过 Keep 才会出现）
-```
+On first launch pick one of: **用一套常用活动 / Utiliser des activités courantes** (14 common activities), **从 A Time Logger 2 导入 / Importer depuis A Time Logger 2** (a `.ttbkp` file), **从 GitHub 数据仓库恢复 / Restaurer depuis le dépôt GitHub**, or **自己从头建 / Partir de zéro**.
 
-分文件用的月份取记录第一段开始时间 ISO 字符串里写的年月（即写入时那个时区的日历月），
-不随查看设备的时区变化，所以不同时区的设备不会把同一条记录来回搬到不同文件。
+### Connect your GitHub data repo
 
-## 连接 GitHub 数据仓库
+1. Create a **private** repo (public ones are refused). It can be shared with other apps; TimeEncre only touches its data directory (default `TimeEncre/`).
+2. Create a **fine-grained personal access token**: *Repository access* → only that repo; *Permissions* → `Contents: Read and write`; set an expiry. Don't use a classic token.
+3. In the app: **设置 / Réglages → GitHub 同步 / Synchronisation GitHub**, enter `owner/repo` (or the full URL) and the token, click **检查并保存 / Vérifier et enregistrer**.
+4. Click **立即同步 / Synchroniser maintenant**. The badge in the top bar shows pending files; with **自动同步 / Synchronisation automatique** on, it syncs by itself.
 
-1. 建一个**私有**仓库（公开仓库会被拒绝）。可以和其他 app 共用，TimeEncre 只读写其中的数据目录（默认 `TimeEncre/`）。
-2. 生成 **fine-grained personal access token**：Repository access 只选这个仓库，Permissions 只开
-   `Contents: Read and write`，设置过期时间。不要用 classic token。
-3. 打开 app → 设置 → GitHub 同步，填仓库（`owner/repo` 或完整网址）和令牌，点“检查并保存”。
-4. 新设备：首次打开选“从 GitHub 数据仓库恢复”，连接同一个仓库后点“立即同步”。
-   **不要**先选“用一套常用类型”，否则会和仓库里的类型并存成两套。
+Each domain has its own browser storage: connect once on the Cloudflare URL and once on the Vercel URL; they then sync through the repo.
 
-⚠️ fine-grained token 只能限定到仓库、不能限定到目录：仓库里其他 app 的私密数据，这个 token 同样能读写。
-token 保存在各设备浏览器本地（IndexedDB），不会随备份导出；“清空本地数据”会保留它。
+### Use a second device
 
-**同步怎么工作**：拉取自上次同步以来远端变化过的文件，按每条数据的 `updatedAt` 合并（较新者胜出，删除以墓碑形式传播），
-再把与远端不同的本地文件打成一个提交推送。远端在此期间被其他设备或其他 app 更新时（非快进），自动重新合并并重试。
-数据文件序列化是确定性的，所以没有改动就不会产生提交，GitHub 上的 diff 也可读。
-计时记录额外有一条规则：某一段的“结束”只进不退。一台设备停止了计时，另一台设备还停留在“进行中”时又改了这条记录（比如加了备注），
-合并后仍然是已停止（结束时间取停止的那一台），备注等其他改动照常保留，两台设备结果一致。
+Choose **从 GitHub 数据仓库恢复** on first launch, connect the same repo, then sync. Don't pick the common-activities set first, or you'll end up with two sets of activities.
 
-## Pomo（番茄钟）
+### Fill in untracked time
 
-专注 / 短休 / 长休循环，可设置时长、几个番茄后长休、提示音和系统通知；
-“专注结束后自动开始休息”和“休息结束后自动开始专注”是两个独立开关。
+On **统计 / Statistiques**, tick **显示未记录时间 / Afficher le temps non enregistré**, then follow the link to **历史 / Historique**. There, **全选未记录 / Tous les trous** selects every gap in the current day / week / month; extend the previous block, pull the next one back, or log them as an activity — all undoable.
 
-选择“专注时记录为”某个类型（可再选标签）后，每段专注会自动生成一条该类型、带这些标签的记录
-（备注“🍅 番茄钟”），所以番茄时间会进入历史、统计和目标。番茄钟与这条记录双向联动：
-在底部的进行中栏暂停、继续、停止它，Pomo 会跟着变。
+### Back up without GitHub
 
-状态按时间戳计算并保存在本机（不同步）。页面在后台或关闭期间到点，回来时按准确的结束时间结算。
-所有 Pomo 操作串行执行（支持 Web Locks 的浏览器上跨标签页也互斥），不会因为多处同时结算而重复建记录。
-如果发现有“🍅 番茄钟”记录在计时却没关联到当前的 Pomo（旧版本留下的、或来自另一台设备），Pomo 页会提示，可一键接管或停止。
+**设置 → 导出备份（JSON） / Exporter une sauvegarde (JSON)**, and **导入 TimeEncre 备份** to merge one back (newer edits win).
 
-## 目录结构
+→ Page-by-page details (calendar drag rules, statistics, Pomodoro, Keep, time zones): [docs/GUIDE.md](docs/GUIDE.md) (Chinese).
 
-```
-src/
-  schema/      数据结构（zod）与版本迁移
-  db/          IndexedDB（Dexie）、写操作、查询 hooks
-  io/          JSON 备份导入导出、A Time Logger 2 导入
-  sync/        GitHub 同步（API 封装、文件序列化、同步引擎、界面）
-  pomodoro/    番茄钟状态机、持久化、后台运行器
-  lib/         时间、id 工具
-  ui/          通用组件
-  features/    各页面（records/ 记录编辑器，shared/ 日周月导航）
-tests/         单元测试（含 ATL2 备份样本、内存版 GitHub 模拟）
+## 🔧 Configuration
+
+No environment variables or config files. Everything is set in the app:
+
+| Setting | Where it lives | Synced |
+|---|---|---|
+| Activities, tags, goals, most settings | IndexedDB → `TimeEncre/profile.json` | ✅ |
+| Records / Keep | IndexedDB → `TimeEncre/records/YYYY-MM.json`, `TimeEncre/keep.json` | ✅ |
+| Data repo, branch, directory, token | IndexedDB, this device only | ❌ (not in backups either) |
+| Language, time zone, 12-hour clock | `localStorage`, this device only | ❌ |
+| Pomodoro running state | this device only | ❌ |
+
+## 🔄 Update & Maintenance
+
+### Update
+
+Run on the machine where you edit the code (not on a server). It fast-forwards from `origin`, runs tests and the build, then pushes; Cloudflare Pages and Vercel deploy in 1–2 minutes.
+
+```bash
+./update.sh            # sync → test + build → push
+./update.sh --status   # show local vs remote commit only
+./update.sh --no-test  # skip tests and build
 ```
 
-## 界面约定
+Open tabs show an update prompt once the new service worker is ready.
 
-- 进行中的计时统一显示在屏幕底部的悬浮栏，不占页面布局；点一项在其上方弹出编辑面板。
-- 计时页点格子开始计时后，直接弹出这条记录的编辑面板（备注、标签在最前面），点空白处收起、计时照常进行；可在设置 → 计时里关掉。长按 / 右键格子仍是“先填备注再开始”。
-- 历史、目标、类型页的条目点一下在原地展开编辑，改动即时保存，可“撤销修改”；点空白处收起。
-- 补录不需要点“添加”：时间段预先填好（空档，或最近一段记录结束之后），点一个活动就建好记录，随即原地变成即时保存的编辑表单；不点活动直接收起则什么也不留下。新建目标 / 活动 / 标签仍需点“添加”。
-- 历史的日 / 周可切换为日历视图（24 小时竖向时间轴）：活动是色块，未记录的空档是斜纹块；
-  点空档可“延长上一段”“提前下一段”或记录为某个活动。统计页的“未记录”可一键跳到这些空档。
-- 日历里可以直接拖动：拖色块的上下边缘改开始 / 结束，拖中间整段平移，在空档里拖出一段只补录这一段。
-  按 5 分钟取整，靠近其他记录的边缘或“现在”会自动贴上；松手即保存，右上角可撤销；Esc 取消。
-  不越过同一记录的相邻段、不晚于现在、每段至少 1 分钟；进行中的记录只能拖开始。
-  可以跨天：周视图里横向拖到别的日子，边缘拖进相邻那一列就跨过午夜；跨天记录的任意一截都能整段平移。
-  拖到日历边缘停 0.6 秒翻到前 / 后一天（日视图，上下边缘）或一周（周视图，左右两侧），可以接着拖。
-  在空档里拖选也能跨天（按数据库里真实的空档算，不受当前显示范围限制）。
-- 历史顶部“全选未记录（N）”：选中当前页签（日 / 周 / 月）范围里的全部未记录时间（跨午夜的不拆开），
-  在面板里可以去掉不想处理的几段，然后对勾选的每一段一起生效：各自延长上一段 / 各自提前下一段（各用自己前后的记录），
-  或点一个活动每段各建一条记录，接着给这些记录一起写备注、加标签。点空白处收起，操作都能撤销。
-  触屏上点一下选中后拖动（没选中的色块划过只会滚动页面），再点一下打开编辑。
+### Data & backup
 
-## 统计
+The source of truth on each device is IndexedDB; the GitHub repo is the shared copy and its history is your backup. Without sync, export JSON regularly — the settings page warns when the browser hasn't granted persistent storage.
 
-- 每一行：总计、平均（周视图日均、月视图周均）、与上一期比较的箭头（日视图和前 7 天的日均比）、最近几期的趋势小折线
-  （日 14 天 / 周 8 周 / 月 6 个月）、百分比。本周 / 本月还没过完时，平均按到今天为止的天数算（今天算一整天），开始使用之前的日子不算。
-- 只有设了“只针对这一项”的目标时，箭头才分红绿（“至少”型增加为绿，“至多”型增加为红），并显示每个周期的 ✓ / ✗；其余箭头保持灰色。
-- 点一行展开：大折线图、本期和上期的平均、连续天数（近一年最长）、本期分段（段数、平均、最长）。“未记录”这一行也有平均、箭头和趋势。
-- 作息：选一个代表睡眠的活动（默认“睡眠”），看平均入睡 / 起床时间、波动（越小越规律）、平均时长；一条记录算一晚，按起床那天归属，不到 3 小时算小睡。
-- 自定义指标：把几个活动 / 标签合成一项（例如“学习质量”），看总时长、平均、变化、趋势、分段和连续天数；同时进行的只算一次。配置随同步保存在设置里。
-- 规律：在趋势窗口内按星期几平均、按“星期几 × 小时”的时段热力（可选某个活动或“未记录”）。
-- Pomo：完成的番茄（专注达到设定时长 90%）、专注与休息时长。
+### Uninstall
 
-## Pomo 的休息记录与提示音
+> [!WARNING]
+> Revoking the token stops sync on **every** device using it. Deleting the data repo also deletes any other app's data stored in it — delete only the `TimeEncre/` directory if the repo is shared.
 
-- Pomo 设置里“休息时记录为”：选一个活动后，短休和长休也会自动生成该活动的记录（备注“☕ Pomo”），
-  和专注记录首尾相接，历史里不再留下休息的空档。不选就和以前一样不记录。
-- 提示音按进入的阶段区分：专注、短休息、长休息各一种；手动点开始也会响，暂停后继续不响。
-  某一段结束而下一段没有自动开始时，响“专注结束”或“休息结束”的提示音（同音连响，像闹钟），和“进入”的旋律区分开。设置里都可以试听。
+1. On each device: **设置 → 清空本地数据 / Effacer les données locales** (keeps the repo settings), or clear the site's data in the browser.
+2. Delete the Cloudflare Pages / Vercel project.
+3. Revoke the token under GitHub **Settings → Developer settings → Personal access tokens → Fine-grained tokens**.
 
-## Keep
+## 🧠 How It Works
 
-清单（卡片）里放条目：条目有内容、是否完成，可以预约一个时间段（默认没有）。和计时完全独立。
-- Keep 页：卡片按顺序从左到右排成瀑布流。点哪里改哪里，即时保存；条目里回车新建下一条（Shift + 回车换行），
-  空条目里按退格删除。已完成的折叠成“N 项已完成”。按住左侧把手拖动排序，可以拖到别的清单；卡片标题旁的把手给清单排序。
-  菜单里改颜色、清除已完成、删除清单（都可撤销）。
-  预约时间段：点条目右侧的时钟（已有预约时点时间标签）展开，和记录的“时间段”是同一套——一行“开始 – 结束 ×”，
-  改了自动保存，点空白处或按 Esc 收起，× 取消预约。
-- 计时页：和“目标”并排。上面是今天的预约（含之前过期还没完成的）：还没开始的普通显示，
-  **已经开始**的蓝底、**已经过期**的红底并标出字样；下面是置顶清单里未完成的条目，可以直接勾选、添加。
-- 历史日历：预约画成右侧的虚线框，和记录并排。点已经开始或过去的预约，按它的时间段补录成记录；点将来的预约跳到 Keep 里那一条。
-- 同步：仓库里的 `TimeEncre/keep.json`，按条目“较新者胜出”合并，两台设备改同一清单里的不同条目不会互相覆盖。
-  备份文件（JSON）里也带上 Keep。
+```mermaid
+flowchart LR
+  UI[React UI] <--> DB[(IndexedDB)]
+  DB <--> SE[Sync engine]
+  SE <-->|Git Data API + fine-grained token| GH[(Private data repo<br/>TimeEncre/*.json)]
+  CODE[This repo] -->|push main| HOST[Cloudflare Pages / Vercel]
+  HOST -->|static files + service worker| UI
+```
 
-## 时间显示与时区
+- **Browser talks to `api.github.com` directly** → no backend to run; the token never leaves the device.
+- **Last-writer-wins per item by `updatedAt`, deletes as tombstones** → devices converge without a server; a stopped timer never "comes back to life".
+- **Deterministic JSON, one file per month** → no change means no commit, and diffs stay readable.
+- **Month file taken from the stored ISO text, not the device time zone** → devices in different zones don't keep moving records between files.
+- **Untracked time ignores seams under 1 minute** → Statistics and History always agree.
 
-设置 → 时间显示：
-- **12 小时制**开关，默认关闭（24 小时制，如 21:30）。打开后显示“下午9:30” / “9:30 PM”。
-- **时区**：默认跟随设备，也可以指定任意 IANA 时区。日期、时刻、“今天”、按天 / 周 / 月的划分、日历和统计都按这个时区算。
-- 记录存的是绝对时间点（带偏移的 ISO），换时区只改变显示和分组，不改数据；新写入的时间带所选时区的偏移。
-- 两项都只保存在当前设备（localStorage），切换后页面会刷新。
+Full data format and sync rules: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (Chinese).
 
-时间输入框是自己的组件（日期用浏览器自带的日期框，时刻是文本框）：浏览器自带的时间框只跟随系统区域设置决定 12/24 小时制。
-时刻框接受 `9:30`、`930`、`2130`、`21h30`、`9:30pm`、`下午9:30`；12 小时制下没写上午 / 下午时沿用旁边按钮显示的半天，
-写 13–23 点按 24 小时理解。↑ / ↓ 调一分钟，Shift + ↑ / ↓ 调十分钟；输错了失焦后恢复原值。
+## 📁 Project Structure
 
-开发约定：涉及“某天几点”“哪天”“几号”的计算一律用 `src/lib/zone.ts`（`zparts`、`fromParts`）和 `src/lib/time.ts`，
-显示时刻用 `src/i18n/dates.ts` 的 `clockText` / `clockRange` / `hourLabel`，不要用 `Date#getHours`、`toLocaleString` 这类按设备时区的方法。
+```text
+.
+├── src/
+│   ├── schema/     # Data types (zod) and version migrations
+│   ├── db/         # IndexedDB (Dexie), write actions, query hooks
+│   ├── sync/       # GitHub API wrapper, file serialization, sync engine
+│   ├── io/         # JSON backup, A Time Logger 2 import
+│   ├── lib/        # Time zones, gaps, statistics (pure functions)
+│   ├── pomodoro/   # Pomodoro state machine and background runner
+│   ├── features/   # One folder per page (timer, history, stats, goals, keep…)
+│   ├── ui/         # Shared components
+│   └── i18n/       # tr(), French dictionary, date formats
+├── tests/          # Vitest unit tests (in-memory IndexedDB, fake GitHub)
+├── public/         # PWA icons
+└── update.sh       # Test, build and push = deploy
+```
 
-## 多语言
+## 🔨 Development
 
-界面支持中文和法语（设置 → 语言）。语言只保存在当前设备，切换后页面会刷新。活动名、标签、备注是你自己的数据，切换语言不会改动它们；只有新建默认活动时按当时的语言命名。
+```bash
+npm install
+npm run dev       # http://localhost:5173
+npm test          # vitest run
+npm run build     # tsc --noEmit + vite build → dist/
+```
 
-开发约定：
-- 界面文字一律写成 `tr('中文原文')`，参数用 `{0}`、`{1}`：`tr('已记录 {0}', formatHm(ms))`。整句写进一个 `tr`，不要把句子拆成碎片拼接（语序在法语里会不同）。
-- 同一个中文词在不同语境需要不同译法时，键写成 `原文|语境`，例如 `tr('活动|字段')`；中文界面只显示竖线前的部分。
-- 法语译文放在 `src/i18n/fr.ts`；日期格式在 `src/i18n/dates.ts`。
-- `tests/i18n.test.ts` 会扫描全部源码：有中文没经过 `tr()`、法语词典缺键或有多余的键、占位符数量不一致，测试都会失败。
+There is no CI and no release tagging: `update.sh` runs the tests and the build before it pushes, and the push is the release. Conventions (i18n, time zones, data changes) are in [AGENTS.md](AGENTS.md).
+
+## 🔒 Security
+
+- The token can read and write the **whole** data repo, not just `TimeEncre/` — fine-grained tokens can't be limited to a directory. Use a repo that holds only data you'd accept TimeEncre having access to, and set an expiry.
+- The token is stored unencrypted in the browser's IndexedDB on each device and is never exported in backups. Anyone with access to that browser profile can read it.
+- No third-party scripts are loaded; the only network calls are to `api.github.com`.
+
+## 🚧 Limitations
+
+- Single user, no sharing. The UI is Chinese and French.
+- Data repos with more than ~100,000 entries hit GitHub's tree-listing limit and sync stops with an error.
+- Conflict resolution is per item: if two devices edit the same record offline, the later edit wins as a whole (except stopped timers, which stay stopped).
+- Device clocks matter: a device whose clock is far off can win or lose merges it shouldn't.
+
+## 📚 Documentation
+
+- [AGENTS.md](AGENTS.md): Commands, conventions, invariants and gotchas for AI coding agents.
+- [docs/GUIDE.md](docs/GUIDE.md): Page-by-page user guide — calendar, statistics, Pomodoro, Keep, time zones (Chinese).
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): Data format, repo layout, sync and merge rules, statistics definitions (Chinese).
+
+## 📄 License
+
+[MIT](LICENSE) © 2026 10ta

@@ -1,6 +1,7 @@
 {
   "name": "timeencre",
   "private": true,
+  "license": "MIT",
   "version": "1.14.3",
   "type": "module",
   "scripts": {

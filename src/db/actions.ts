@@ -218,24 +218,6 @@ export interface RecordDraft {
 const toIntervals = (ivs: IntervalMs[]) =>
   ivs.map((iv) => ({ start: toIso(iv.start), end: iv.end === null ? null : toIso(iv.end) }));
 
-export async function saveRecord(id: string, draft: RecordDraft) {
-  const err = validateIntervals(draft.intervals);
-  if (err) throw new Error(err);
-  await mutateRecord(id, (r) => {
-    // 只有进行中的记录最后一段是未结束的（编辑器不允许改它的结束时间），其余保持原状态
-    const open = draft.intervals[draft.intervals.length - 1].end === null;
-    const state: TimeRecord['state'] = open ? 'running' : r.state === 'running' ? 'stopped' : r.state;
-    return {
-      ...r,
-      typeId: draft.typeId,
-      comment: draft.comment,
-      tagIds: draft.tagIds,
-      intervals: toIntervals(draft.intervals),
-      state,
-    };
-  });
-}
-
 /** 补录：直接创建一条已结束的记录 */
 export async function createManualRecord(draft: RecordDraft): Promise<string> {
   const err = validateIntervals(draft.intervals);

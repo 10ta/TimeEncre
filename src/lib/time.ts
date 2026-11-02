@@ -64,12 +64,6 @@ export function addDays(ms: number, n: number): number {
   return fromParts(p.y, p.m, p.d + n, p.h, p.mi, p.s) + (((ms % 1000) + 1000) % 1000);
 }
 
-/** 所选时区里的 "2026-10" */
-export function monthKey(ms: number): string {
-  const p = zparts(ms);
-  return `${p.y}-${pad(p.m)}`;
-}
-
 /** 01:01:01（小时可超过 99） */
 export function formatClock(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));

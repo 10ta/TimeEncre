@@ -12,7 +12,6 @@ export const useKeepItems = () =>
   useLiveQuery(async () => (await db.keepItems.toArray()).filter((x) => !x.deleted).sort(byOrder), []);
 
 /** 是否用过 Keep（有清单，含已删除的也不算） */
-export const useHasKeep = () => useLiveQuery(async () => (await db.keepLists.toArray()).some((x) => !x.deleted), []);
 
 /** 预约的状态：还没开始 / 已经开始（在时间段内）/ 已经过期（结束了还没完成）/ 已完成 */
 export type SlotState = 'upcoming' | 'started' | 'overdue' | 'done';

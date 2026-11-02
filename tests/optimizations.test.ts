@@ -7,6 +7,7 @@ import { mergeLww } from '../src/io/bundle';
 import { _setZoneForTest, fromParts } from '../src/lib/zone';
 import { addDays, startOfDay } from '../src/lib/time';
 import { clippedSpans, goalProgressMs } from '../src/lib/stats';
+import { buildLocalFiles } from '../src/sync/files';
 
 const M = 60_000;
 const live = async () => (await db.records.where('active').equals(1).toArray()).filter((r) => !r.deleted);
@@ -94,5 +95,21 @@ describe('缓存不改变结果', () => {
     expect(clippedSpans(open, from, to, Date.parse('2026-10-15T08:30:00Z'))[0].end).toBe(Date.parse('2026-10-15T08:30:00Z'));
     expect(clippedSpans(open, from, to, Date.parse('2026-10-15T08:45:00Z'))[0].end).toBe(Date.parse('2026-10-15T08:45:00Z'));
     expect(addDays(startOfDay(from), 1)).toBeGreaterThan(from);
+  });
+
+  it('月份文件的文本缓存：数据没变复用，变了（哪怕 updatedAt 没变）就重算；月份消失时文件也消失', async () => {
+    const id = await startRecord('t');
+    await stopRecord(id);
+    const recFile = (fs: Map<string, string>) => [...fs].find(([k]) => k.startsWith('records/'));
+    const a = recFile(await buildLocalFiles())!;
+    expect(recFile(await buildLocalFiles())![1]).toBe(a[1]);
+    // 合并时 reconcileRecord 会改内容但保留 updatedAt：缓存不能只看 updatedAt
+    await db.records.update(id, { comment: 'changed' });
+    const b = recFile(await buildLocalFiles())!;
+    expect(b[0]).toBe(a[0]);
+    expect(b[1]).not.toBe(a[1]);
+    expect(b[1]).toContain('"comment": "changed"');
+    await db.records.clear();
+    expect(recFile(await buildLocalFiles())).toBeUndefined();
   });
 });
