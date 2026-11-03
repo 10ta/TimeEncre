@@ -116,7 +116,7 @@ type Drag =
 
 type Pending = { drag: Drag; x0: number; y0: number };
 
-/** Keep 里带预约时间段的条目：在日历里画成虚线框，和记录并排 */
+/** Keep 里带预约时间段的条目、例程：在日历里画成虚线框，和记录并排 */
 export interface Plan {
   id: string;
   text: string;
@@ -124,6 +124,8 @@ export interface Plan {
   start: number;
   end: number;
   done: boolean;
+  /** 例程展开出来的一段（不是 Keep 的预约） */
+  routine?: boolean;
 }
 
 /** 有预约的那天，右侧留给预约框的宽度 */

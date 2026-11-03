@@ -22,7 +22,7 @@ import { tr } from '../../i18n';
 /** 一天中的第 m 分钟 → 按 12/24 小时制显示的时刻 */
 const minuteText = (m: number) => clockText(fromParts(2000, 1, 1, 0, Math.round(m)));
 
-function Section({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
+export function Section({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
   return (
     <section className="stats-section">
       <header className="stats-section-head">
@@ -44,9 +44,14 @@ function ShiftBadge({ cur, prev }: { cur: MeanSd | null; prev: MeanSd | null }) 
   return <span className="chg is-neutral">{d < 0 ? tr("早 {0}", formatHm(-d * 60_000)) : tr("晚 {0}", formatHm(d * 60_000))}</span>;
 }
 
-export function SleepPanel({ ctx, settings, types }: { ctx: StatsCtx; settings: Settings; types: CatalogItem[] }) {
+/** 作息用哪个活动：设置过就用设置的，否则用默认的“睡眠”（如果有） */
+export function sleepTypeOf(settings: Settings, types: CatalogItem[]): string | null {
   const configured = settings.stats?.sleepTypeId;
-  const sleepTypeId = configured === undefined ? (types.some((t) => t.id === 'default-sleep') ? 'default-sleep' : null) : configured;
+  return configured === undefined ? (types.some((t) => t.id === 'default-sleep') ? 'default-sleep' : null) : configured;
+}
+
+export function SleepPanel({ ctx, settings, types }: { ctx: StatsCtx; settings: Settings; types: CatalogItem[] }) {
+  const sleepTypeId = sleepTypeOf(settings, types);
   const { records, range, prevWin, now } = ctx;
   const data = useMemo(() => {
     if (!sleepTypeId) return null;

@@ -75,3 +75,11 @@ export const useFirstRecordMs = () =>
   }, []);
 
 export const useDuplicateGroups = (kind: CatalogKind) => useLiveQuery(() => findDuplicateGroups(kind), [kind]);
+
+/** 没删除的例程，按顺序 */
+export const useRoutines = () =>
+  useLiveQuery(async () => (await db.routines.orderBy('order').toArray()).filter((r) => !r.deleted), []);
+
+/** 每日评分：日期 YYYY-MM-DD → 1–5（不含已清除的） */
+export const useRatings = () =>
+  useLiveQuery(async () => new Map((await db.ratings.toArray()).filter((r) => !r.deleted).map((r) => [r.id, r.score])), []);

@@ -8,9 +8,10 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   return Notification.requestPermission();
 }
 
-export async function notify(title: string, body: string): Promise<void> {
+/** tag 相同的通知会互相替换：番茄钟一个，每条提醒各自一个 */
+export async function notify(title: string, body: string, tag = 'timeencre-pomodoro'): Promise<void> {
   if (!notificationSupported() || Notification.permission !== 'granted') return;
-  const opts: NotificationOptions = { body, tag: 'timeencre-pomodoro', icon: './icon-192.png' };
+  const opts: NotificationOptions = { body, tag, icon: './icon-192.png' };
   try {
     const reg = await navigator.serviceWorker?.getRegistration();
     if (reg) return void (await reg.showNotification(title, opts));

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { useFirstRecordMs, useRecordsInRange, useSettings, useTagMap, useTypeMap } from '../../db/hooks';
+import { useFirstRecordMs, useRecordsInRange, useRoutines, useSettings, useTagMap, useTypeMap } from '../../db/hooks';
 import type { DbRecord } from '../../db/db';
 import { fromDb } from '../../db/db';
 import type { CatalogItem } from '../../schema';
@@ -14,6 +14,7 @@ import { FloatingSheet } from '../../ui/FloatingSheet';
 import { GAP_MIN_MS } from '../../lib/gaps';
 import { CalendarView, dayGaps, type Plan } from './CalendarView';
 import { slotMs, useKeepItems, useKeepLists } from '../keep/model';
+import { adherence, routineBlocks } from '../../lib/routines';
 import { GapActions } from './GapActions';
 import { MultiGapSheet } from './MultiGapSheet';
 import { tr } from '../../i18n';
@@ -60,6 +61,7 @@ export function HistoryPage() {
   const [multi, setMulti] = useState<Span[] | null>(null);
   const keepLists = useKeepLists();
   const keepItems = useKeepItems();
+  const routines = useRoutines();
 
   // 从统计页“查看这些空白”跳过来：#/history?mode=week&anchor=<ms>&gaps=1
   useEffect(() => {
@@ -118,16 +120,31 @@ export function HistoryPage() {
     if (!records || q || !(from < to)) return [];
     return gaps(records.flatMap((r) => recordSpans(r, now)), from, to, GAP_MIN_MS);
   }, [records, range.from, range.to, gapFloor, now, q]);
-  // Keep 里与这段时间有交集的预约
+  // Keep 里与这段时间有交集的预约，加上例程展开的各段
   const plans = useMemo<Plan[]>(() => {
     const lm = new Map((keepLists ?? []).map((l) => [l.id, l]));
-    return (keepItems ?? []).flatMap((it) => {
+    const keep = (keepItems ?? []).flatMap((it) => {
       const s = slotMs(it);
       const l = lm.get(it.listId);
       if (!s || !l || s.end <= range.from || s.start >= range.to) return [];
       return [{ id: it.id, text: it.text, color: l.color, start: s.start, end: s.end, done: it.done }];
     });
-  }, [keepLists, keepItems, range.from, range.to]);
+    const blocks = routineBlocks(routines ?? [], range.from, range.to).map((b) => {
+      const t = typeMap?.get(b.routine.typeId);
+      // 已经过去、计划时段里八成以上在做这件事，就算完成
+      const a = b.end <= now && records ? adherence(b.routine, records, b.start, b.end, now) : null;
+      return {
+        id: `${b.routine.id}@${b.start}`,
+        text: t ? `${t.emoji} ${t.name}` : '',
+        color: t?.color ?? 'var(--muted)',
+        start: b.start,
+        end: b.end,
+        done: !!a && a.plannedMs > 0 && a.doneMs >= a.plannedMs * 0.8,
+        routine: true,
+      };
+    });
+    return [...keep, ...blocks];
+  }, [keepLists, keepItems, routines, typeMap, records, now, range.from, range.to]);
   const calGaps = useMemo(
     () =>
       q
@@ -251,8 +268,8 @@ export function HistoryPage() {
             plans={q ? [] : plans}
             isGapSelected={multi ? covered : undefined}
             onOpenPlan={(p) => {
-              // 将来的预约还不能补录：去 Keep 里看它
-              if (p.start > Date.now()) location.hash = `#/keep?item=${p.id}`;
+              // 将来的预约 / 例程还不能补录：去 Keep 或目标页里看它
+              if (p.start > Date.now()) location.hash = p.routine ? '#/goals' : `#/keep?item=${p.id}`;
               else setSheet({ key: `plan:${p.id}`, gap: { start: p.start, end: Math.min(p.end, Date.now()) }, plan: p });
             }}
           />
@@ -465,7 +482,7 @@ function GapSheet({
       onClose={onClose}
       head={
         <>
-          <strong>{plan ? tr("按预约补录：{0}", plan.text || '…') : tr("未记录")}</strong>
+          <strong>{plan ? (plan.routine ? tr("按例程补录：{0}", plan.text || '…') : tr("按预约补录：{0}", plan.text || '…')) : tr("未记录")}</strong>
           <span className="gap-sheet-range">
             {hmRange(gap)} · {formatHm(gap.end - gap.start)}
           </span>

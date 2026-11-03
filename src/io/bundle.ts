@@ -6,7 +6,7 @@ import { CURRENT_SCHEMA_VERSION, parseBundle, type BundleFile } from '../schema'
 import { fromIso, toIso } from '../lib/time';
 
 export async function exportBundle(): Promise<BundleFile> {
-  const [types, tags, goals, records, settings, keepLists, keepItems] = await Promise.all([
+  const [types, tags, goals, records, settings, keepLists, keepItems, routines, ratings] = await Promise.all([
     db.types.orderBy('order').toArray(),
     db.tags.orderBy('order').toArray(),
     db.goals.toArray(),
@@ -14,6 +14,8 @@ export async function exportBundle(): Promise<BundleFile> {
     getSettings(),
     db.keepLists.orderBy('order').toArray(),
     db.keepItems.orderBy('order').toArray(),
+    db.routines.orderBy('order').toArray(),
+    db.ratings.orderBy('id').toArray(),
   ]);
   // 墓碑（deleted: true）也一并导出，合并时才能正确传播删除
   return {
@@ -28,6 +30,8 @@ export async function exportBundle(): Promise<BundleFile> {
     records: records.map(fromDb),
     keepLists,
     keepItems,
+    routines,
+    ratings,
   };
 }
 
@@ -134,7 +138,7 @@ export interface BundleImportReport {
 
 export async function importBundle(raw: unknown): Promise<BundleImportReport> {
   const b = parseBundle(raw);
-  return db.transaction('rw', [db.types, db.tags, db.goals, db.records, db.meta, db.keepLists, db.keepItems], async () => {
+  return db.transaction('rw', [db.types, db.tags, db.goals, db.records, db.meta, db.keepLists, db.keepItems, db.routines, db.ratings], async () => {
     const id = <T,>(x: T) => x;
     const types = await mergeLww(db.types, b.types, id);
     const tags = await mergeLww(db.tags, b.tags, id);
@@ -143,6 +147,8 @@ export async function importBundle(raw: unknown): Promise<BundleImportReport> {
     const kl = await mergeLww(db.keepLists, b.keepLists, id);
     const ki = await mergeLww(db.keepItems, b.keepItems, id);
     const keep = { added: kl.added + ki.added, updated: kl.updated + ki.updated, kept: kl.kept + ki.kept };
+    await mergeLww(db.routines, b.routines, id);
+    await mergeLww(db.ratings, b.ratings, id);
     const cur = await getSettings();
     const settingsUpdated = fromIso(b.settings.updatedAt) > fromIso(cur.updatedAt);
     if (settingsUpdated) await putSettingsRaw(b.settings);

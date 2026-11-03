@@ -14,6 +14,7 @@ import { DiscardToast } from './ui/DiscardToast';
 import { UndoToast } from './ui/UndoToast';
 import { AutoSync, SyncBadge } from './sync/SyncBadge';
 import { ErrorBoundary } from './ui/ErrorBoundary';
+import { Nudges } from './features/nudges/Nudges';
 import { tr } from './i18n';
 
 const NAV = [
@@ -111,6 +112,9 @@ export function App() {
         </ErrorBoundary>
         <ErrorBoundary area={tr("提示")}>
           <UndoToast />
+        </ErrorBoundary>
+        <ErrorBoundary area={tr("提醒")}>
+          <Nudges />
         </ErrorBoundary>
       </div>
       <main className="main">

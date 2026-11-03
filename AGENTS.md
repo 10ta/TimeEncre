@@ -27,12 +27,16 @@ There is no linter or formatter config; match the surrounding style (2-space ind
 - `src/db/` — Dexie database (`db.ts`, local index versions), all writes (`actions.ts`, `keep.ts`), live-query hooks (`hooks.ts`).
 - `src/sync/` — GitHub REST wrapper (`github.ts`), deterministic file serialization + merge-in (`files.ts`), sync engine and auto-sync (`engine.ts`, `SyncBadge.tsx`).
 - `src/io/` — JSON backup and LWW merge (`bundle.ts`), A Time Logger 2 import (`atl2.ts`).
-- `src/lib/` — pure functions: time zones (`zone.ts`, `time.ts`), gaps (`gaps.ts`, `segments.ts`), statistics (`stats.ts`, `insights.ts`).
+- `src/lib/` — pure functions: time zones (`zone.ts`, `time.ts`), gaps (`gaps.ts`, `segments.ts`), statistics (`stats.ts`, `insights.ts`), goal evaluation for all goal kinds (`goals.ts`), routines and plan-vs-actual (`routines.ts`), weekly review (`review.ts`), reminder rules (`nudges.ts`).
+- `src/db/daily.ts` — writes for routines and daily ratings (synced as `TimeEncre/daily.json`).
+- `src/features/nudges/Nudges.tsx` — in-app reminder runner (mounted in `App.tsx`); settings UI in `features/settings/NudgeSection.tsx`.
+- `src/features/stats/ReviewPanel.tsx` — weekly review UI; `features/goals/RoutinesSection.tsx` — routine editor; `features/timer/DayRating.tsx`, `RoutineNow.tsx` — timer-page rating and current routine.
 - `src/features/<page>/` — one folder per route: `timer`, `history`, `stats`, `goals`, `keep`, `pomodoro`, `catalog`, `settings`; `records/` holds the record editor.
 - `src/pomodoro/` — Pomodoro state machine, persistence, background settlement.
 - `src/i18n/` — `tr()`, French dictionary `fr.ts`, date formatting `dates.ts`.
 - `tests/` — Vitest; `fakeGithub.ts` is an in-memory GitHub; `fixtures/atl2-sample.ttbkp`.
 - Untracked-time logic: `src/lib/gaps.ts` (`GAP_MIN_MS`) is the single threshold for both History and Statistics.
+- Goal progress anywhere (goals page, timer page, stats marks, reminders, review) goes through `evalGoal` in `src/lib/goals.ts`; never compute goal status by hand.
 
 ## Conventions
 
@@ -44,7 +48,7 @@ There is no linter or formatter config; match the surrounding style (2-space ind
 
 ## Architecture & invariants
 
-- Data flow: UI → `db/actions.ts` → IndexedDB → `sync/files.ts` builds `TimeEncre/profile.json`, `keep.json`, `records/YYYY-MM.json` → `sync/engine.ts` pushes one commit via the Git Data API.
+- Data flow: UI → `db/actions.ts` → IndexedDB → `sync/files.ts` builds `TimeEncre/profile.json`, `keep.json`, `daily.json`, `records/YYYY-MM.json` → `sync/engine.ts` pushes one commit via the Git Data API.
 - Every mutation must set a fresh `updatedAt` (`stamp()`); sync and backup merges are last-writer-wins per item on it.
 - Deletes are tombstones (`deleted: true`), never hard deletes of synced rows — otherwise the item reappears from the repo.
 - Record merges go through `reconcileRecord`: an interval's end only moves forward, so a stopped timer stays stopped.
@@ -52,6 +56,8 @@ There is no linter or formatter config; match the surrounding style (2-space ind
 - A record's month file comes from the ISO text of its first interval start (`fileMonth`), not the device time zone.
 - Data files carry `schemaVersion`; reading upgrades through `src/schema/index.ts`, and files newer than the app are refused. Local IndexedDB index versions in `db.ts` are a separate number.
 - Sync only touches its data directory; other apps' files in the same repo must survive untouched.
+- New synced collections go in their own file (like `daily.json`), not as new top-level keys of an existing file: old clients rebuild known files from their own tables and would drop unknown keys on push. New fields on existing items are fine (`looseObject` keeps them).
+- Reminders are in-app only by design (no push server, no backend). Keep `dueNudges` pure and key-deduplicated.
 
 ## Do not
 

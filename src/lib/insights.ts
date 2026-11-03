@@ -5,7 +5,8 @@ import { daysIn, rangeOf, shiftAnchor, type Range, type RangeMode } from './rang
 import { fromParts, zparts } from './zone';
 import { GAP_MIN_MS } from './gaps';
 import { gaps } from './segments';
-import { clippedSpans, goalProgressMs, goalStatus, unionMs, type GoalLike, type GoalStatus } from './stats';
+import { clippedSpans, unionMs, type GoalStatus } from './stats';
+import { evalGoal, type GoalEval, type GoalSpec } from './goals';
 
 export interface RecLike {
   id?: string;
@@ -140,6 +141,8 @@ export interface GoalMark {
   /** none = 还没开始用（第一条记录之前）；future = 还没到 */
   status: GoalStatus | 'none' | 'future';
   ms: number;
+  /** 已开始的周期才有 */
+  ev?: GoalEval;
 }
 
 /**
@@ -147,7 +150,7 @@ export interface GoalMark {
  * 每周目标是与区间有交集的各周；比区间长的目标（例如周视图里的每月目标）就是包含它的那一期。
  */
 export function goalMarks(
-  goal: GoalLike,
+  goal: GoalSpec,
   records: RecLike[],
   range: { from: number; to: number },
   now: number,
@@ -168,14 +171,14 @@ export function goalMarks(
       out.push({ from: p.from, to: p.to, status: 'none', ms: 0 });
       continue;
     }
-    const ms = goalProgressMs(goal, records, p.from, p.to, now);
-    out.push({ from: p.from, to: p.to, status: goalStatus(goal, ms, p.to <= now), ms });
+    const ev = evalGoal(goal, records, p, now, p.to <= now);
+    out.push({ from: p.from, to: p.to, status: ev.status, ms: ev.ms, ev });
   }
   return out;
 }
 
 /** 只针对某一个活动（或某一个标签）的目标，才在那一行显示完成情况和红绿箭头 */
-export function goalForKey<G extends GoalLike>(goals: G[], key: string, kind: 'type' | 'tag'): G | undefined {
+export function goalForKey<G extends GoalSpec>(goals: G[], key: string, kind: 'type' | 'tag'): G | undefined {
   return goals.find((g) =>
     kind === 'type'
       ? g.typeIds.length === 1 && g.typeIds[0] === key && g.tagIds.length === 0

@@ -1,6 +1,6 @@
 // 所有写操作集中在这里。每次写入都更新 updatedAt，P2 的同步合并依赖它。
 import { db, fromDb, toDb, type DbRecord } from './db';
-import type { CatalogItem, Settings, TimeRecord } from '../schema';
+import type { CatalogItem, Goal, Settings, TimeRecord } from '../schema';
 import { newId } from '../lib/id';
 import { fromIso, toIso } from '../lib/time';
 import { DEFAULT_ID_PREFIX, DEFAULT_NAME_TO_ID, PALETTE, defaultSettings, defaultTypes } from './defaults';
@@ -346,9 +346,12 @@ export async function seedDefaultTypes() {
 /** 清空本地数据，但保留同步配置（仓库、令牌），方便清空后重新从仓库拉取。
  *  同步状态必须一起清掉，否则下次同步会把“空”当成本地修改推上去。 */
 export async function clearAllLocalData() {
-  await db.transaction('rw', [db.types, db.tags, db.goals, db.records, db.meta, db.keepLists, db.keepItems], async () => {
+  await db.transaction('rw', [db.types, db.tags, db.goals, db.records, db.meta, db.keepLists, db.keepItems, db.routines, db.ratings], async () => {
     const keep = await db.meta.get('syncConfig');
-    await Promise.all([db.types.clear(), db.tags.clear(), db.goals.clear(), db.records.clear(), db.meta.clear(), db.keepLists.clear(), db.keepItems.clear()]);
+    await Promise.all([
+      db.types.clear(), db.tags.clear(), db.goals.clear(), db.records.clear(), db.meta.clear(),
+      db.keepLists.clear(), db.keepItems.clear(), db.routines.clear(), db.ratings.clear(),
+    ]);
     if (keep) await db.meta.put(keep);
   });
 }
@@ -363,23 +366,42 @@ export interface GoalDraft {
   period: 'day' | 'week' | 'month';
   direction: 'atLeast' | 'atMost';
   targetMinutes: number;
+  kind?: Goal['kind'];
+  minDays?: number;
+  clockEdge?: 'start' | 'end';
+  clockMin?: number;
+  windowFrom?: number;
+  windowTo?: number;
+}
+
+/** 按目标类型整理字段：用不到的字段去掉，必需的组合在这里固定下来 */
+function normalizeGoal<T extends Omit<GoalDraft, 'id'>>(d: T): T {
+  if (d.typeIds.length === 0 && d.tagIds.length === 0) throw new Error(tr("至少选择一个活动或标签"));
+  const kind = d.kind ?? 'duration';
+  const out = { ...d, kind } as T;
+  for (const k of ['minDays', 'clockEdge', 'clockMin', 'windowFrom', 'windowTo'] as const) delete out[k];
+  if (kind === 'days') {
+    if (d.period === 'day') throw new Error(tr("“几天达标”的目标需要按周或按月"));
+    if (!(d.minDays && d.minDays > 0)) throw new Error(tr("请填写至少几天"));
+    const maxDays = d.period === 'week' ? 7 : 31;
+    if (d.minDays > maxDays) throw new Error(tr("一个周期最多 {0} 天", maxDays));
+    Object.assign(out, { minDays: d.minDays, direction: 'atLeast' });
+  } else if (kind === 'clock') {
+    if (d.clockMin == null || !d.clockEdge) throw new Error(tr("请填写时刻"));
+    // 每天一次；时长字段用不到，但旧版本要求大于 0，填 1
+    Object.assign(out, { clockEdge: d.clockEdge, clockMin: d.clockMin, period: 'day', direction: 'atMost', targetMinutes: 1 });
+  } else if (kind === 'window') {
+    if (d.windowFrom == null || d.windowTo == null || d.windowFrom === d.windowTo) throw new Error(tr("请填写时段的开始和结束"));
+    Object.assign(out, { windowFrom: d.windowFrom, windowTo: d.windowTo });
+  }
+  if (!(out.targetMinutes > 0)) throw new Error(tr("目标时长必须大于 0"));
+  return out;
 }
 
 export async function saveGoal(d: GoalDraft): Promise<string> {
-  if (d.typeIds.length === 0 && d.tagIds.length === 0) throw new Error(tr("至少选择一个活动或标签"));
-  if (!(d.targetMinutes > 0)) throw new Error(tr("目标时长必须大于 0"));
   const id = d.id ?? newId();
-  await db.goals.put({
-    id,
-    name: d.name,
-    typeIds: d.typeIds,
-    tagIds: d.tagIds,
-    period: d.period,
-    direction: d.direction,
-    targetMinutes: d.targetMinutes,
-    updatedAt: stamp(),
-    deleted: false,
-  });
+  const n = normalizeGoal(d);
+  await db.goals.put({ ...n, id, updatedAt: stamp(), deleted: false });
   return id;
 }
 
@@ -423,10 +445,7 @@ export async function restoreRecord(snapshot: TimeRecord) {
 export async function patchGoal(id: string, patch: Partial<Omit<GoalDraft, 'id'>>) {
   const cur = await db.goals.get(id);
   if (!cur) return;
-  const next = { ...cur, ...patch };
-  if (next.typeIds.length === 0 && next.tagIds.length === 0) throw new Error(tr("至少选择一个活动或标签"));
-  if (!(next.targetMinutes > 0)) throw new Error(tr("目标时长必须大于 0"));
-  await db.goals.put({ ...next, updatedAt: stamp() });
+  await db.goals.put({ ...normalizeGoal({ ...cur, ...patch }), updatedAt: stamp() });
 }
 
 export async function restoreGoal(snapshot: import('../schema').Goal) {

@@ -49,6 +49,20 @@ export const GoalV1 = z.looseObject({
   period: z.enum(['day', 'week', 'month']),
   direction: z.enum(['atLeast', 'atMost']),
   targetMinutes: z.number().positive(),
+  // 以下为 v1 内的增量字段（缺省 = 原来的“时长”目标）。旧版本客户端会原样保留这些字段。
+  /**
+   * duration：周期内累计时长（默认）
+   * days：周期内有几天达到 targetMinutes（至少 minDays 天）
+   * clock：按时作息，每天一次——当天最长那段的开始（入睡）/ 结束（起床）不晚于 clockMin
+   * window：只算每天 windowFrom–windowTo 这个时段里的时长（可跨午夜）
+   */
+  kind: z.enum(['duration', 'days', 'clock', 'window']).optional(),
+  minDays: z.number().int().positive().optional(),
+  clockEdge: z.enum(['start', 'end']).optional(),
+  /** 一天中的分钟数 0–1439 */
+  clockMin: z.number().int().min(0).max(1439).optional(),
+  windowFrom: z.number().int().min(0).max(1439).optional(),
+  windowTo: z.number().int().min(0).max(1439).optional(),
 });
 
 export const PomodoroV1 = z.looseObject({
@@ -86,6 +100,18 @@ export const StatsSettingsV1 = z.looseObject({
   metrics: z.array(StatsMetricV1).optional(),
 });
 
+/** App 内提醒（只在页面打开时生效） */
+export const NudgeSettingsV1 = z.looseObject({
+  /** 总开关；缺省视为开启 */
+  enabled: z.boolean().optional(),
+  /** 没有任何计时超过这么多分钟时提醒；null / 缺省 = 不提醒 */
+  idleMin: z.number().int().positive().nullable().optional(),
+  /** 例程开始时，如果没在做那件事就提醒；缺省视为开启 */
+  routineStart: z.boolean().optional(),
+  /** 某个活动连续计时每满 N 分钟提醒一次：活动 id → 分钟 */
+  long: z.record(z.string(), z.number().int().positive()).optional(),
+});
+
 export const SettingsV1 = z.looseObject({
   updatedAt: IsoTime,
   /** 0 = 周日，1 = 周一 */
@@ -98,6 +124,7 @@ export const SettingsV1 = z.looseObject({
   openSheetOnStart: z.boolean().optional(),
   pomodoro: PomodoroV1,
   stats: StatsSettingsV1.optional(),
+  nudges: NudgeSettingsV1.optional(),
 });
 
 // ---------- Keep：清单与条目 ----------
@@ -157,6 +184,35 @@ export const RecordsFileV1 = z.looseObject({
   keepItems: z.array(KeepItemV1).default([]),
 });
 
+// ---------- 例程与每日评分（TimeEncre/daily.json） ----------
+
+/** 例程：每周固定几天的一个时间块，例如工作日 9:00–12:00 学习。end ≤ start 表示跨午夜 */
+export const RoutineV1 = z.looseObject({
+  ...base,
+  typeId: z.string(),
+  /** 0 = 周日 … 6 = 周六 */
+  weekdays: z.array(z.number().int().min(0).max(6)),
+  /** 一天中的分钟数 */
+  start: z.number().int().min(0).max(1439),
+  end: z.number().int().min(0).max(1439),
+  order: z.number(),
+});
+
+/** 一天的感受评分，id 是所选时区里的日期 YYYY-MM-DD */
+export const RatingV1 = z.looseObject({
+  ...base,
+  id: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  score: z.number().int().min(1).max(5),
+});
+
+/** 仓库中的 TimeEncre/daily.json */
+export const DailyFileV1 = z.looseObject({
+  schemaVersion: z.literal(1),
+  kind: z.literal('daily'),
+  routines: z.array(RoutineV1).default([]),
+  ratings: z.array(RatingV1).default([]),
+});
+
 /** 手动导出 / 导入用的单文件备份 */
 export const BundleFileV1 = z.looseObject({
   schemaVersion: z.literal(1),
@@ -171,4 +227,6 @@ export const BundleFileV1 = z.looseObject({
   /** v1 内的增量字段：旧备份没有 */
   keepLists: z.array(KeepListV1).default([]),
   keepItems: z.array(KeepItemV1).default([]),
+  routines: z.array(RoutineV1).default([]),
+  ratings: z.array(RatingV1).default([]),
 });

@@ -4144,3 +4144,282 @@ select.inline-select {
   border-radius: 2px;
   background: color-mix(in srgb, var(--c) var(--a), color-mix(in srgb, var(--line) 45%, transparent));
 }
+
+/* ---------- 目标类型 ---------- */
+
+.goal-kinds {
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.tabs.is-small button {
+  padding: 0.25rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+.goal-kind-hint {
+  margin: -0.75rem 0 1rem;
+}
+
+.goal-sentence .dtf.is-clock input {
+  width: 5.5rem !important;
+}
+
+/* 按时作息没有进度条：留出位置，保持对齐 */
+.tg-bar.is-empty,
+.goal-bar.is-empty {
+  visibility: hidden;
+}
+
+/* ---------- 例程（目标页） ---------- */
+
+.routines {
+  margin-top: 2.5rem;
+}
+
+.routine-list {
+  list-style: none;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.routine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--c);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.routine > select {
+  width: auto;
+  min-width: 8rem;
+}
+
+.routine-days {
+  display: inline-flex;
+  gap: 0.2rem;
+}
+
+.day-chip {
+  min-width: 2rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.day-chip.is-on {
+  border-color: var(--c);
+  background: color-mix(in srgb, var(--c) 18%, var(--surface));
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.routine-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.routine-time .dtf-time {
+  width: 5rem;
+}
+
+.routine .btn {
+  margin-left: auto;
+}
+
+/* ---------- 计时页：现在的例程、每日评分 ---------- */
+
+.routine-now {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.routine-now li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem 0.5rem 0.9rem;
+  border-left: 4px solid var(--c);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--c) 10%, var(--surface));
+}
+
+.routine-now small {
+  margin-left: 0.5rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.day-rating {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.25rem 0 1.5rem;
+}
+
+.rating-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+}
+
+.rating-label {
+  font-size: 0.92rem;
+  color: var(--ink-2);
+}
+
+.rating-faces {
+  display: inline-flex;
+  gap: 0.15rem;
+}
+
+.face {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  filter: grayscale(0.85);
+  opacity: 0.7;
+  transition: transform 0.1s, filter 0.1s, opacity 0.1s;
+}
+
+.face:hover,
+.face:focus-visible {
+  filter: none;
+  opacity: 1;
+  transform: scale(1.12);
+}
+
+.face.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  filter: none;
+  opacity: 1;
+}
+
+.rating-feel {
+  font-size: 0.88rem;
+  color: var(--ink-2);
+}
+
+.rating-feel b {
+  color: var(--ink);
+  margin-right: 0.25rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- 周复盘 ---------- */
+
+.review-suggest {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.review-suggest li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+}
+
+.review-suggest li > span {
+  flex: 1 1 22rem;
+}
+
+.review-suggest .btn {
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.review-lines {
+  flex-direction: column;
+  align-items: flex-start !important;
+  font-size: 0.95rem !important;
+}
+
+.review-lines > span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.4rem;
+}
+
+.review-sub {
+  margin: 1.25rem 0 0.4rem;
+  font-size: 0.95rem;
+  color: var(--ink-2);
+}
+
+.review-links {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.review-links li.hint {
+  list-style: none;
+  margin-left: -1.2rem;
+}
+
+.review-links small {
+  margin-left: 0.35rem;
+  color: var(--muted);
+}
+
+/* ---------- 提醒 ---------- */
+
+.toast.is-nudge {
+  border-left: 3px solid var(--accent);
+}
+
+.toast.is-nudge > span {
+  display: grid;
+}
+
+.toast.is-nudge small {
+  color: var(--ink-2);
+}
+
+.nudge-long .inline-num {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}

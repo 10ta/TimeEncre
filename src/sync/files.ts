@@ -3,7 +3,7 @@
 // 所以可以用 git blob SHA 判断“本地改了没有”“远端改了没有”，也让 GitHub 上的 diff 可读。
 import { db, fromDb, toDb, type DbRecord } from '../db/db';
 import { getSettings, putSettingsRaw } from '../db/actions';
-import { CURRENT_SCHEMA_VERSION, parseKeepFile, parseProfileFile, parseRecordsFile } from '../schema';
+import { CURRENT_SCHEMA_VERSION, parseDailyFile, parseKeepFile, parseProfileFile, parseRecordsFile } from '../schema';
 import { mergeLww, reconcileRecord } from '../io/bundle';
 import { fromIso } from '../lib/time';
 import { sha1Hex } from '../lib/sha1';
@@ -14,6 +14,7 @@ const KEY_ORDER = [
   'state', 'intervals', 'start', 'end', 'order', 'archived', 'typeIds', 'period', 'direction',
   'targetMinutes', 'listId', 'text', 'done', 'doneAt', 'slot', 'pinned', 'updatedAt', 'deleted',
   'types', 'tags', 'goals', 'settings', 'records', 'lists', 'items',
+  'minDays', 'clockEdge', 'clockMin', 'windowFrom', 'windowTo', 'weekdays', 'score', 'routines', 'ratings',
 ];
 const KEY_RANK = new Map(KEY_ORDER.map((k, i) => [k, i]));
 const rank = (k: string) => KEY_RANK.get(k) ?? KEY_ORDER.length;
@@ -47,11 +48,12 @@ export async function gitBlobSha(text: string): Promise<string> {
 export const PROFILE_PATH = 'profile.json';
 const RECORDS_RE = /^records\/(\d{4}-\d{2})\.json$/;
 export const KEEP_PATH = 'keep.json';
-export const isOurFile = (rel: string) => rel === PROFILE_PATH || rel === KEEP_PATH || RECORDS_RE.test(rel);
+export const DAILY_PATH = 'daily.json';
+export const isOurFile = (rel: string) => rel === PROFILE_PATH || rel === KEEP_PATH || rel === DAILY_PATH || RECORDS_RE.test(rel);
 
 /** 把本地数据序列化成仓库文件（路径相对于数据目录） */
 export async function buildLocalFiles(): Promise<Map<string, string>> {
-  const [types, tags, goals, records, settings, keepLists, keepItems] = await Promise.all([
+  const [types, tags, goals, records, settings, keepLists, keepItems, routines, ratings] = await Promise.all([
     db.types.toArray(),
     db.tags.toArray(),
     db.goals.toArray(),
@@ -59,6 +61,8 @@ export async function buildLocalFiles(): Promise<Map<string, string>> {
     getSettings(),
     db.keepLists.toArray(),
     db.keepItems.toArray(),
+    db.routines.toArray(),
+    db.ratings.toArray(),
   ]);
   const byOrder = <T extends { order: number; id: string }>(a: T, b: T) => a.order - b.order || (a.id < b.id ? -1 : 1);
   const files = new Map<string, string>();
@@ -82,6 +86,18 @@ export async function buildLocalFiles(): Promise<Map<string, string>> {
         kind: 'keep',
         lists: keepLists.sort(byOrder),
         items: keepItems.sort((a, b) => (a.listId < b.listId ? -1 : a.listId > b.listId ? 1 : 0) || byOrder(a, b)),
+      }),
+    );
+  }
+  // 没用过例程和评分就不建这个文件
+  if (routines.length || ratings.length) {
+    files.set(
+      DAILY_PATH,
+      serialize({
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        kind: 'daily',
+        routines: routines.sort(byOrder),
+        ratings: ratings.sort((a, b) => (a.id < b.id ? -1 : 1)),
       }),
     );
   }
@@ -138,6 +154,13 @@ export async function applyRemoteFile(rel: string, text: string): Promise<void> 
       const same = <T,>(x: T) => x;
       await mergeLww(db.keepLists, k.lists, same);
       await mergeLww(db.keepItems, k.items, same);
+    });
+  } else if (rel === DAILY_PATH) {
+    const d = parseDailyFile(raw);
+    await db.transaction('rw', [db.routines, db.ratings], async () => {
+      const same = <T,>(x: T) => x;
+      await mergeLww(db.routines, d.routines, same);
+      await mergeLww(db.ratings, d.ratings, same);
     });
   } else if (RECORDS_RE.test(rel)) {
     const f = parseRecordsFile(raw);

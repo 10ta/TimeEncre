@@ -7,7 +7,7 @@ import type { Range, RangeMode } from '../../lib/range';
 import { dailyUnion, sessionStats, streaks, type Change, type GoalMark } from '../../lib/insights';
 import { daysIn, rangeLabel } from '../../lib/range';
 import { dayOfMonth, monthShort, shortDate } from '../../i18n/dates';
-import { STATUS_TEXT } from '../goals/goalView';
+import { STATUS_TEXT, evalText } from '../goals/goalView';
 import { LineChart } from './charts';
 import { tr } from '../../i18n';
 
@@ -72,7 +72,7 @@ export function GoalMarksView({ goal, marks, now }: { goal: Goal; marks: GoalMar
           key={m.from}
           className={`gmark is-${m.status}`}
           title={`${rangeLabel({ mode: goal.period, from: m.from, to: m.to }, now)} · ${
-            m.status === 'none' ? tr("还没开始记录") : m.status === 'future' ? tr("还没到") : `${formatHm(m.ms)} · ${STATUS_TEXT[m.status]}`
+            m.status === 'none' ? tr("还没开始记录") : m.status === 'future' ? tr("还没到") : `${m.ev ? evalText(goal, m.ev) : formatHm(m.ms)} · ${STATUS_TEXT[m.status]}`
           }`}
         >
           {MARK_GLYPH[m.status]}

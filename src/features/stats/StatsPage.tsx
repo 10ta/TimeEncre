@@ -12,6 +12,8 @@ import { RangeNav } from '../shared/RangeNav';
 import { DailyBars, DayTimeline, Donut, Sparkline, type Slice } from './charts';
 import { ChangeBadge, GoalMarksView, RowDetail, avgLabel, cmpLabel, valueText, type StatsCtx } from './StatRows';
 import { MetricsPanel, PatternsPanel, PomoPanel, SleepPanel } from './Panels';
+import { goalKind } from '../../lib/goals';
+import { ReviewPanel } from './ReviewPanel';
 import { tr } from '../../i18n';
 
 const UNTRACKED = '__untracked';
@@ -202,7 +204,8 @@ export function StatsPage() {
                 {rows.map((s) => {
                   const info = rowInfo(s.key, s.ms);
                   const open = openRow === s.key;
-                  const goodWhenUp = info.goal ? info.goal.direction === 'atLeast' : null;
+                  // 只有按时长计的目标（累计、几天达标）才能说时长增加是好是坏
+                  const goodWhenUp = info.goal && ['duration', 'days'].includes(goalKind(info.goal)) ? info.goal.direction === 'atLeast' : null;
                   return (
                     <li key={s.key} className={open ? 'is-open' : undefined} style={{ '--c': s.color, '--w': `${base ? (s.ms / base) * 100 : 0}%` } as CSSProperties}>
                       <button type="button" className="legend-row" aria-expanded={open} onClick={() => setOpenRow(open ? null : s.key)}>
@@ -286,6 +289,7 @@ export function StatsPage() {
         </>
       )}
 
+      {mode === 'week' && <ReviewPanel ctx={ctx} settings={settings} goals={goals} types={types} typeMap={typeMap} />}
       <SleepPanel ctx={ctx} settings={settings} types={types} />
       <MetricsPanel ctx={ctx} settings={settings} typeMap={typeMap} tagMap={tagMap} />
       <PatternsPanel ctx={ctx} typeMap={typeMap} topTypes={typeSlices.map((s) => s.key)} />

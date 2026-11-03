@@ -6,6 +6,7 @@ import { importAtl2 } from '../../io/atl2';
 import { downloadJson, readJsonFile } from '../../io/download';
 import { fileStamp } from '../../lib/time';
 import { SyncSection } from '../../sync/SyncSection';
+import { NudgeSection } from './NudgeSection';
 import { LANGS, getLang, switchLang, tr, type Lang } from '../../i18n';
 import { AUTO, allZones, deviceZone, getHour12, getZonePref, offsetLabel, switchHour12, switchZone } from '../../lib/zone';
 import { dateTimeText } from '../../i18n/dates';
@@ -107,6 +108,8 @@ export function SettingsPage() {
           <a href="#/catalog">{tr("管理活动与标签")}</a>
         </p>
       </section>
+
+      <NudgeSection settings={settings} />
 
       <section>
         <h2>{tr("语言")} · Langue</h2>

@@ -8,6 +8,8 @@ import { TodayStrip } from './TodayStrip';
 import { RecordDialog } from './RecordDialog';
 import { TodayGoals } from '../goals/TodayGoals';
 import { TodayKeep } from '../keep/TodayKeep';
+import { RoutineNow } from './RoutineNow';
+import { DayRating } from './DayRating';
 import { tr } from '../../i18n';
 
 export function TimerPage() {
@@ -29,7 +31,9 @@ export function TimerPage() {
           {tr("有 {0} 组同名的活动。", dupTypes.length)} <a href="#/catalog">{tr("去合并 ›")}</a>
         </p>
       )}
+      <RoutineNow />
       <TypeGrid types={types} actives={actives} onOptions={setOptionsFor} />
+      <DayRating />
       <div className="home-pair">
         <TodayGoals />
         <TodayKeep />

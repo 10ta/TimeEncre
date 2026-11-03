@@ -38,7 +38,9 @@ Time-tracking apps keep your log in their cloud or on one phone. TimeEncre runs 
 - **One-tap timer** — tap an activity tile to start; pause, resume and stop from a dock at the bottom of every page.
 - **Calendar history** — a 24-hour timeline per day or week; drag blocks to move or resize them, drag in empty space to backfill.
 - **Untracked time you can fix in bulk** — gaps of a minute or more are shown, and one button selects them all to extend the previous block, pull the next one back, or log them as an activity.
-- **Statistics and goals** — totals, daily averages, comparison with the previous period, trend lines, sleep rhythm, weekday × hour heatmaps; "at least / at most" goals per day, week or month.
+- **Statistics and goals** — totals, daily averages, comparison with the previous period, trend lines, sleep rhythm, weekday × hour heatmaps. Goals can be a total ("at least 10 h a week"), a number of days ("sport 4 days a week"), a bedtime ("asleep by 23:30") or a cap on a time slot ("at most 15 min online 22:00–02:00").
+- **Weekly review that tells you what to change** — a review built from the week's data: goals hit, biggest changes, plan vs actual, links between your daily 1–5 rating and what you did, and up to three suggestions you can apply in one click.
+- **Routines and in-app reminders** — recurring blocks ("weekdays 9:00–12:00 study") drawn on the calendar; while the app is open it reminds you when a cap is near, a session runs too long, a routine starts, or nothing is being timed.
 - **Pomodoro that logs itself** — focus (and optionally breaks) become records automatically, settled at the exact end time even if the tab was closed.
 - **Keep** — checklists whose items can reserve a time slot shown beside your records.
 - **Your data, in Git** — one commit per sync, deterministic JSON, readable diffs; imports A Time Logger 2 backups (`.ttbkp`).
@@ -126,11 +128,21 @@ Choose **从 GitHub 数据仓库恢复** on first launch, connect the same repo,
 
 On **统计 / Statistiques**, tick **显示未记录时间 / Afficher le temps non enregistré**, then follow the link to **历史 / Historique**. There, **全选未记录 / Tous les trous** selects every gap in the current day / week / month; extend the previous block, pull the next one back, or log them as an activity — all undoable.
 
+### Plan your week and review it
+
+1. **目标 / Objectifs** → **例程 / Routines**: add the blocks you want to keep each week. The timer page then shows what is planned right now, with a one-tap start.
+2. On the timer page, rate each day with one tap (😫 … 😄); each face says what it means.
+3. On **统计 / Statistiques** in week view, **本周复盘 / Bilan de la semaine** lists suggestions, the week's key facts and links found over the last 8 weeks. Buttons on a suggestion create the matching goal or routine (undoable).
+
+### Get reminded while you work
+
+**设置 → 提醒 / Rappels**: on by default for "at most" goals (80 % and over the limit) and routine starts; add "no timer for N minutes" and per-activity "every N minutes in a row". Reminders only fire while TimeEncre is open (a background tab is fine); allow system notifications there to see them outside the page.
+
 ### Back up without GitHub
 
 **设置 → 导出备份（JSON） / Exporter une sauvegarde (JSON)**, and **导入 TimeEncre 备份** to merge one back (newer edits win).
 
-→ Page-by-page details (calendar drag rules, statistics, Pomodoro, Keep, time zones): [docs/GUIDE.md](docs/GUIDE.md) (Chinese).
+→ Page-by-page details (calendar drag rules, statistics, goals, routines, review, reminders, Pomodoro, Keep, time zones): [docs/GUIDE.md](docs/GUIDE.md) (Chinese).
 
 ## 🔧 Configuration
 
@@ -138,11 +150,12 @@ No environment variables or config files. Everything is set in the app:
 
 | Setting | Where it lives | Synced |
 |---|---|---|
-| Activities, tags, goals, most settings | IndexedDB → `TimeEncre/profile.json` | ✅ |
+| Activities, tags, goals, most settings (incl. reminders) | IndexedDB → `TimeEncre/profile.json` | ✅ |
+| Routines, daily ratings | IndexedDB → `TimeEncre/daily.json` | ✅ |
 | Records / Keep | IndexedDB → `TimeEncre/records/YYYY-MM.json`, `TimeEncre/keep.json` | ✅ |
 | Data repo, branch, directory, token | IndexedDB, this device only | ❌ (not in backups either) |
 | Language, time zone, 12-hour clock | `localStorage`, this device only | ❌ |
-| Pomodoro running state | this device only | ❌ |
+| Pomodoro running state, reminders already shown | this device only | ❌ |
 
 ## 🔄 Update & Maintenance
 
@@ -229,6 +242,8 @@ There is no CI and no release tagging: `update.sh` runs the tests and the build 
 ## 🚧 Limitations
 
 - Single user, no sharing. The UI is Chinese and French.
+- Reminders need the app open (a background tab is fine). A closed tab, or a phone that suspended the browser, gets no reminders — there is no push server.
+- The weekly review's links compare averages between two groups of days; they show what goes together, not causes, and need at least 4 days per group.
 - Data repos with more than ~100,000 entries hit GitHub's tree-listing limit and sync stops with an error.
 - Conflict resolution is per item: if two devices edit the same record offline, the later edit wins as a whole (except stopped timers, which stay stopped).
 - Device clocks matter: a device whose clock is far off can win or lose merges it shouldn't.

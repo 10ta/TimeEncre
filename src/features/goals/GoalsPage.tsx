@@ -1,12 +1,14 @@
 import { useState, type CSSProperties } from 'react';
 import { useFirstRecordMs, useGoals, useRecordsInRange, useSettings, useTagMap, useTypeMap } from '../../db/hooks';
 import { useNow } from '../../ui/hooks';
-import { addDays, formatHm, startOfDay } from '../../lib/time';
+import { addDays, startOfDay } from '../../lib/time';
 import { rangeLabel } from '../../lib/range';
-import { HISTORY_PERIODS, goalProgressMs, goalStatus, recentPeriods } from '../../lib/stats';
+import { HISTORY_PERIODS, recentPeriods } from '../../lib/stats';
+import { evalGoal } from '../../lib/goals';
 import { CreateGoalForm, LiveGoalForm } from './GoalForms';
+import { RoutinesSection } from './RoutinesSection';
 import { Drawer } from '../../ui/Drawer';
-import { CURRENT_WORD, DIRECTION_LABEL, PERIOD_LABEL, STATUS_TEXT, viewGoal } from './goalView';
+import { CURRENT_WORD, STATUS_TEXT, evalText, goalRule, viewGoal } from './goalView';
 import { tr } from '../../i18n';
 
 export function GoalsPage() {
@@ -37,7 +39,7 @@ export function GoalsPage() {
 
       {goals.length === 0 && (
         <p className="empty">
-          {tr("还没有目标。可以给活动或标签设定每天、每周、每月的时长，比如“每周至少学习 10 小时”“每天娱乐至多 1.5 小时”。")}
+          {tr("还没有目标。可以给活动或标签设定每天、每周、每月的时长（“每周至少学习 10 小时”），几天达标（“每周至少 4 天运动 30 分钟”），按时作息（“23:30 前开始睡眠”），或某个时段的上限（“22:00–02:00 上网至多 15 分钟”）。")}
         </p>
       )}
 
@@ -45,7 +47,7 @@ export function GoalsPage() {
         {goals.map((g) => {
           const periods = recentPeriods(g.period, now, ws, HISTORY_PERIODS[g.period]);
           const v = viewGoal(g, records, now, ws, typeMap, tagMap);
-          const { ms, target, status, pct, elapsed, items, color, title } = v;
+          const { status, pct, elapsed, items, color, title } = v;
 
           return (
             <li key={g.id} className={`goal-item${openKey === g.id ? ' is-open' : ''}`}>
@@ -57,15 +59,15 @@ export function GoalsPage() {
                 </span>
                 <span className="goal-scope">
                   {items.map((x) => `${x.emoji}${x.name}`).join(tr("、")) || tr("（引用的活动或标签已删除）")}
-                  {g.name && ` · ${tr("{0}{1} {2}", PERIOD_LABEL[g.period], DIRECTION_LABEL[g.direction], formatHm(target))}`}
+                  {g.name && ` · ${goalRule(g)}`}
                 </span>
                 <span className="goal-progress">
-                  <span className="goal-bar" aria-hidden="true">
-                    <span className="goal-fill" style={{ width: `${pct}%` }} />
-                    {g.direction === 'atLeast' && <span className="goal-pace" style={{ left: `${elapsed * 100}%` }} title={tr("按时间进度应到达的位置")} />}
+                  <span className={`goal-bar${pct == null ? ' is-empty' : ''}`} aria-hidden="true">
+                    {pct != null && <span className="goal-fill" style={{ width: `${pct}%` }} />}
+                    {pct != null && g.direction === 'atLeast' && <span className="goal-pace" style={{ left: `${elapsed * 100}%` }} title={tr("按时间进度应到达的位置")} />}
                   </span>
                   <span className="goal-numbers">
-                    {CURRENT_WORD[g.period]} {formatHm(ms)} / {formatHm(target)}
+                    {CURRENT_WORD[g.period]} {v.numbers}
                     <span className="goal-remain">
                         {v.remainText}
                     </span>
@@ -78,10 +80,9 @@ export function GoalsPage() {
                   // 开始记录之前的周期没有数据，不算未达成
                   if (!isCur && (firstMs === null || p.to <= firstMs))
                     return <li key={p.from} className="dot is-none" title={tr("{0}：还没开始记录", rangeLabel(p, now))} />;
-                  const pms = goalProgressMs(g, records, p.from, p.to, now);
-                  const st = goalStatus(g, pms, !isCur);
+                  const pe = evalGoal(g, records, p, now, !isCur);
                   return (
-                    <li key={p.from} className={`dot is-${st}${isCur ? ' is-current' : ''}`} title={tr("{0}：{1}，{2}", rangeLabel(p, now), formatHm(pms), STATUS_TEXT[st])} />
+                    <li key={p.from} className={`dot is-${pe.status}${isCur ? ' is-current' : ''}`} title={tr("{0}：{1}，{2}", rangeLabel(p, now), evalText(g, pe), STATUS_TEXT[pe.status])} />
                   );
                 })}
               </ol>
@@ -106,6 +107,8 @@ export function GoalsPage() {
         </li>
       </ul>
       {goals.length > 0 && <p className="hint">{tr("右侧小方块是最近几个周期的达成情况，最右边是当前周期；鼠标悬停可看具体时长。“至少”型目标的竖线表示按时间进度此刻应到达的位置。")}</p>}
+
+      <RoutinesSection />
 
     </div>
   );

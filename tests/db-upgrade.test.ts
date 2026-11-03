@@ -20,7 +20,7 @@ describe('IndexedDB v1 → 当前版本', () => {
 
     const { db } = await import('../src/db/db');
     const r = (await db.records.get('r1'))!;
-    expect(db.verno).toBe(3);
+    expect(db.verno).toBe(4);
     expect(r.month).toBe('2026-10');
     expect(r.comment).toBe('x');
     expect(await db.records.where('month').equals('2026-10').count()).toBe(1);

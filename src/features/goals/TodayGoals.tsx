@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useGoals, useRecordsInRange, useSettings, useTagMap, useTypeMap } from '../../db/hooks';
 import { useNow } from '../../ui/hooks';
-import { addDays, formatHm, startOfDay } from '../../lib/time';
+import { addDays, startOfDay } from '../../lib/time';
 import { rangeOf } from '../../lib/range';
 import { CURRENT_WORD, STATUS_TEXT, viewGoal } from './goalView';
 import { tr } from '../../i18n';
@@ -39,15 +39,17 @@ export function TodayGoals() {
               <span className="tg-when">{CURRENT_WORD[v.goal.period]}</span>
               {v.shortTitle}
             </span>
-            <span className="tg-bar" aria-hidden="true">
-              <span className="tg-fill" style={{ width: `${v.pct}%` }} />
-              {v.goal.direction === 'atLeast' && v.goal.period !== 'day' && (
-                <span className="goal-pace" style={{ left: `${v.elapsed * 100}%` }} />
-              )}
-            </span>
-            <span className="tg-num">
-              {formatHm(v.ms)} / {formatHm(v.target)}
-            </span>
+            {v.pct == null ? (
+              <span className="tg-bar is-empty" aria-hidden="true" />
+            ) : (
+              <span className="tg-bar" aria-hidden="true">
+                <span className="tg-fill" style={{ width: `${v.pct}%` }} />
+                {v.goal.direction === 'atLeast' && v.goal.period !== 'day' && (
+                  <span className="goal-pace" style={{ left: `${v.elapsed * 100}%` }} />
+                )}
+              </span>
+            )}
+            <span className="tg-num">{v.numbers}</span>
             <span className={`goal-status is-${v.status}`}>{v.status === 'ongoing' ? v.remainText : STATUS_TEXT[v.status]}</span>
           </li>
         ))}

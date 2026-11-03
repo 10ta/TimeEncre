@@ -9,15 +9,19 @@ import { z } from 'zod';
 import {
   BundleFileV1,
   CatalogItemV1,
+  DailyFileV1,
   GoalV1,
   KeepFileV1,
   KeepItemV1,
   KeepListV1,
   ProfileFileV1,
+  RatingV1,
   RecordV1,
   RecordsFileV1,
+  RoutineV1,
   SettingsV1,
   StatsMetricV1,
+  NudgeSettingsV1,
 } from './v1';
 import { tr } from '../i18n';
 
@@ -38,6 +42,10 @@ export type BundleFile = z.infer<typeof BundleFileV1>;
 export type KeepList = z.infer<typeof KeepListV1>;
 export type KeepItem = z.infer<typeof KeepItemV1>;
 export type KeepFile = z.infer<typeof KeepFileV1>;
+export type Routine = z.infer<typeof RoutineV1>;
+export type Rating = z.infer<typeof RatingV1>;
+export type DailyFile = z.infer<typeof DailyFileV1>;
+export type NudgeSettings = z.infer<typeof NudgeSettingsV1>;
 
 type AnyFile = { schemaVersion: number; kind: string; [k: string]: unknown };
 
@@ -83,3 +91,4 @@ export const parseBundle = (raw: unknown): BundleFile => BundleFileV1.parse(migr
 export const parseProfileFile = (raw: unknown): ProfileFile => ProfileFileV1.parse(migrateFile(raw));
 export const parseRecordsFile = (raw: unknown): RecordsFile => RecordsFileV1.parse(migrateFile(raw));
 export const parseKeepFile = (raw: unknown): KeepFile => KeepFileV1.parse(migrateFile(raw));
+export const parseDailyFile = (raw: unknown): DailyFile => DailyFileV1.parse(migrateFile(raw));
