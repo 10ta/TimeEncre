@@ -4,7 +4,7 @@ import { addDays, recordSpans, startOfDay } from './time';
 import { daysIn } from './range';
 import { dayKey, fromParts, zparts } from './zone';
 import { unionMs } from './stats';
-import { countedDays, dailyUnion, goalMarks, sleepStats, untrackedIn } from './insights';
+import { compareSetup, dailyUnion, goalMarks, sleepStats, untrackedIn } from './insights';
 import { goalKind, isCap, type GoalSpec } from './goals';
 import { adherence, type RoutineLike } from './routines';
 
@@ -47,11 +47,15 @@ export interface GoalResult {
   ongoing: boolean;
 }
 
+/** 超出往常范围的活动：本周已过完的日子的日均 vs 前 4 周同几天（中位数、最低–最高） */
 export interface Change {
   typeId: string;
-  /** 日均，毫秒 */
+  /** 日均，毫秒；本周还没有过完的日子时是“到现在为止”的总时长 */
   cur: number;
-  prev: number;
+  median: number;
+  min: number;
+  max: number;
+  partial: boolean;
 }
 
 export interface RoutineResult {
@@ -177,8 +181,8 @@ const roundDownTo = (m: number, step: number) => Math.floor(m / step) * step;
 export function weeklyReview(input: ReviewInput): Review {
   const { records, goals, routines, ratings, week, prev, now, firstMs, weekStart, sleepTypeId, typeIds } = input;
   const end = Math.min(week.to, now);
-  const days = countedDays(week, now, firstMs);
-  const prevDays = countedDays(prev, now, firstMs);
+  const setup = compareSetup('week', week, now, firstMs, weekStart);
+  const days = setup.cur?.days ?? 0;
   const ofType = (id: string) => records.filter((r) => r.typeId === id);
 
   // 目标：本周的各个周期
@@ -193,16 +197,17 @@ export function weeklyReview(input: ReviewInput): Review {
     };
   });
 
-  // 变化最大的活动（日均）
+  // 变化：只列超出往常范围的活动（和前 4 周同几天比；往期不足 3 周不下结论）
   const changes: Change[] = [];
-  if (days && prevDays)
-    for (const id of typeIds) {
-      const mine = ofType(id);
-      const cur = unionMs(mine.flatMap((r) => recordSpans(r, now)).map((s) => ({ start: Math.max(s.start, week.from), end: Math.min(s.end, end) })).filter((s) => s.end > s.start)) / days;
-      const p = unionMs(mine.flatMap((r) => recordSpans(r, now)).map((s) => ({ start: Math.max(s.start, prev.from), end: Math.min(s.end, prev.to) })).filter((s) => s.end > s.start)) / prevDays;
-      if (Math.abs(cur - p) >= 15 * M) changes.push({ typeId: id, cur, prev: p });
-    }
-  changes.sort((a, b) => Math.abs(b.cur - b.prev) - Math.abs(a.cur - a.prev));
+  for (const id of typeIds) {
+    const mine = ofType(id);
+    const b = setup.compare((f, t) =>
+      unionMs(mine.flatMap((r) => recordSpans(r, now)).map((s) => ({ start: Math.max(s.start, f), end: Math.min(s.end, t) })).filter((s) => s.end > s.start)),
+    );
+    if (!b || b.outside === 0 || b.median == null || Math.abs(b.cur - b.median) < 10 * M) continue;
+    changes.push({ typeId: id, cur: b.cur, median: b.median, min: b.min!, max: b.max!, partial: b.partial });
+  }
+  changes.sort((a, b) => Math.abs(b.cur - b.median) - Math.abs(a.cur - a.median));
 
   const untrackedMs = untrackedIn(records, week.from, week.to, now, firstMs);
 

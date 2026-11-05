@@ -205,7 +205,8 @@ export function DayTimeline({
 }
 
 /** 迷你折线：一行里看最近几期的走势；空值（还没开始用）断开 */
-export function Sparkline({ values, color, label }: { values: Array<number | null>; color: string; label: string }) {
+/** partialLast：最后一期还没过完，画成空心点 */
+export function Sparkline({ values, color, label, partialLast = false }: { values: Array<number | null>; color: string; label: string; partialLast?: boolean }) {
   const W = 84;
   const Hh = 22;
   const pad = 3;
@@ -229,7 +230,7 @@ export function Sparkline({ values, color, label }: { values: Array<number | nul
   return (
     <svg className="spark" viewBox={`0 0 ${W} ${Hh}`} role="img" aria-label={label} style={{ '--c': color } as React.CSSProperties}>
       <path d={d} fill="none" />
-      {lv != null && <circle cx={x(last)} cy={y(lv)} r="2.4" />}
+      {lv != null && <circle cx={x(last)} cy={y(lv)} r="2.4" className={partialLast ? 'is-partial' : undefined} />}
     </svg>
   );
 }
@@ -241,12 +242,15 @@ export function LineChart({
   color,
   format,
   label,
+  partialLast = false,
 }: {
   values: Array<number | null>;
   labels: string[];
   color: string;
   format: (v: number) => string;
   label: string;
+  /** 最后一期还没过完：空心点 */
+  partialLast?: boolean;
 }) {
   const W = 640;
   const Hh = 170;
@@ -273,7 +277,7 @@ export function LineChart({
         <g key={i}>
           {v != null && (
             <>
-              <circle cx={x(i)} cy={y(v)} r={i === values.length - 1 ? 4 : 3} className={i === values.length - 1 ? 'is-last' : undefined} />
+              <circle cx={x(i)} cy={y(v)} r={i === values.length - 1 ? 4 : 3} className={i === values.length - 1 ? (partialLast ? 'is-last is-partial' : 'is-last') : undefined} />
               <text x={x(i)} y={y(v) - 8} className="val" textAnchor={i === 0 ? 'start' : i === values.length - 1 ? 'end' : 'middle'}>
                 {format(v)}
               </text>

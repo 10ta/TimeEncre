@@ -37,6 +37,7 @@ There is no linter or formatter config; match the surrounding style (2-space ind
 - `tests/` — Vitest; `fakeGithub.ts` is an in-memory GitHub; `fixtures/atl2-sample.ttbkp`.
 - Untracked-time logic: `src/lib/gaps.ts` (`GAP_MIN_MS`) is the single threshold for both History and Statistics.
 - Goal progress anywhere (goals page, timer page, stats marks, reminders, review) goes through `evalGoal` in `src/lib/goals.ts`; never compute goal status by hand.
+- Period comparisons (stats rows, metrics, Pomodoro, weekly review) go through `compareSetup` in `src/lib/insights.ts`: finished days only for an in-progress week/month, same-time windows otherwise, median + min–max of the previous 4 weeks (3 months). Never compare an in-progress period against a full one.
 
 ## Conventions
 

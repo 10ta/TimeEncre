@@ -21,41 +21,126 @@ const H = 3_600_000;
 /** 趋势往回看几期（含本期）：日视图 14 天，周视图 8 周，月视图 6 个月 */
 export const TREND_PERIODS: Record<RangeMode, number> = { day: 14, week: 8, month: 6 };
 
-// ---------- 平均 ----------
+// ---------- 同期比较 ----------
+//
+// 进行中的周 / 月只比较“已经过完的日子”：本周一到周三 vs 往前几周的周一到周三。
+// 今天还没过完，不参与比较（否则早上睡眠偏多、学习偏少，晚上又反过来）。
+// 比较对象不是“上一期”一个数，而是往前几期同一段的中位数，加上它们的最小–最大值（往常范围）：
+// 一周和一周比太随机，落在往常范围里的变化不值得标出来。
+//
+// 例外：本期还没有过完的日子（日视图的今天、周一 / 每月 1 号）——比较“到现在为止”，
+// 往期取同一天的同一时刻。
 
-/**
- * 计入平均的天数：区间里到今天为止（今天算一整天）、且不早于第一条记录那天的天数。
- * 还没过完的本周 / 本月按已过去的天数算，开始用之前的日子不算。
- */
-export function countedDays(range: { from: number; to: number }, now: number, firstMs: number | null): number {
-  if (firstMs == null) return 0;
+/** 往前看几期作为“往常”：日视图是前 4 个同星期几，周视图 4 周，月视图 3 个月 */
+export const BASELINE_PERIODS: Record<RangeMode, number> = { day: 4, week: 4, month: 3 };
+
+export interface CompareWindow {
+  from: number;
+  to: number;
+  /** 除数：窗口里完整的天数；不足一天（到现在为止）时为 1，比较的就是总时长 */
+  days: number;
+  /** 到现在为止（不足一天）的窗口 */
+  partial: boolean;
+}
+
+/** 本期用来比较的那一段；还没开始用、或整段都在将来时为 null */
+export function currentWindow(mode: RangeMode, range: { from: number; to: number }, now: number, firstMs: number | null): CompareWindow | null {
+  if (firstMs == null || range.from > now) return null;
   const from = Math.max(range.from, startOfDay(firstMs));
-  const to = Math.min(range.to, addDays(startOfDay(now), 1));
-  let n = 0;
-  for (let d = from; d < to; d = addDays(d, 1)) n++;
-  return n;
+  if (range.to <= now) return from < range.to ? { from, to: range.to, days: daysIn(from, range.to).length, partial: false } : null;
+  const today = startOfDay(now);
+  if (mode !== 'day' && today > from) return { from, to: today, days: daysIn(from, today).length, partial: false };
+  return from < now ? { from: Math.max(from, today), to: now, days: 1, partial: true } : null;
 }
 
-/**
- * 每一期用来比较的数值：日视图 = 当天总时长；周视图 = 日均；月视图 = 周均（日均 × 7）。
- * 没有可计入的天数时为 null。
- */
-export function periodValue(total: number, mode: RangeMode, days: number): number | null {
-  if (mode === 'day') return days > 0 ? total : null;
-  if (days <= 0) return null;
-  return mode === 'week' ? total / days : (total / days) * 7;
+/** 往前第 k 期的范围（日视图是 k 周前的同一天） */
+function priorRange(mode: RangeMode, range: { from: number; to: number }, k: number, weekStart: number): { from: number; to: number } {
+  if (mode === 'day') {
+    const from = addDays(range.from, -7 * k);
+    return { from, to: addDays(from, 1) };
+  }
+  let a = range.from;
+  for (let i = 0; i < k; i++) a = shiftAnchor(mode, a, -1);
+  return rangeOf(mode, a, weekStart);
 }
 
-/** 与哪一段比较：周 / 月是上一周 / 上一月；日是前 7 天的日均（和昨天单独比太随机） */
+/** 往常：往前几期里和本期“同一段”的窗口（开始用之前的期不算） */
+export function baselineWindows(
+  mode: RangeMode,
+  range: { from: number; to: number },
+  cur: CompareWindow,
+  firstMs: number | null,
+  weekStart: number,
+  n = BASELINE_PERIODS[mode],
+): CompareWindow[] {
+  if (firstMs == null) return [];
+  const first = startOfDay(firstMs);
+  const out: CompareWindow[] = [];
+  // 本期窗口相对开头：第几天、几点
+  const dayIdx = daysIn(range.from, startOfDay(cur.to)).length;
+  const t = zparts(cur.to);
+  const full = cur.to >= range.to;
+  for (let k = 1; k <= n; k++) {
+    const p = priorRange(mode, range, k, weekStart);
+    if (p.from < first) break;
+    let to = p.to;
+    if (!full) {
+      const q = zparts(p.from);
+      to = Math.min(p.to, fromParts(q.y, q.m, q.d + dayIdx, t.h, t.mi, t.s));
+    }
+    const from = cur.partial ? Math.max(p.from, startOfDay(to - 1)) : p.from;
+    if (to <= from) continue;
+    out.push({ from, to, days: cur.partial ? 1 : daysIn(from, startOfDay(to - 1) + 1).length, partial: cur.partial });
+  }
+  return out;
+}
+
+export interface Baseline {
+  /** 本期的值（窗口时长 ÷ 天数） */
+  cur: number;
+  /** 往常：往期同一段的中位数；没有往期数据时为 null */
+  median: number | null;
+  min: number | null;
+  max: number | null;
+  /** 往期有几期 */
+  n: number;
+  /** 1 = 高于往常范围，-1 = 低于，0 = 在范围内或往期不足 3 期（不下结论） */
+  outside: -1 | 0 | 1;
+  partial: boolean;
+  /** 本期窗口的天数（除数） */
+  days: number;
+}
+
+const median = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+/** 往期至少几期才判断“超出往常” */
+export const MIN_BASELINE = 3;
+
+export function compareToBaseline(valueOf: (from: number, to: number) => number, cur: CompareWindow, base: CompareWindow[]): Baseline {
+  const v = valueOf(cur.from, cur.to) / cur.days;
+  const xs = base.map((w) => valueOf(w.from, w.to) / w.days);
+  if (!xs.length) return { cur: v, median: null, min: null, max: null, n: 0, outside: 0, partial: cur.partial, days: cur.days };
+  const min = Math.min(...xs);
+  const max = Math.max(...xs);
+  const outside = xs.length >= MIN_BASELINE ? (v > max ? 1 : v < min ? -1 : 0) : 0;
+  return { cur: v, median: median(xs), min, max, n: xs.length, outside, partial: cur.partial, days: cur.days };
+}
+
+/** 统计页每一行要的：本期窗口、往常窗口一次算好，各行只换 valueOf */
+export function compareSetup(mode: RangeMode, range: { from: number; to: number }, now: number, firstMs: number | null, weekStart: number) {
+  const cur = currentWindow(mode, range, now, firstMs);
+  const base = cur ? baselineWindows(mode, range, cur, firstMs, weekStart) : [];
+  return { cur, base, compare: (valueOf: (from: number, to: number) => number) => (cur ? compareToBaseline(valueOf, cur, base) : null) };
+}
+
+/** 与哪一段比较作息（平均入睡等，按晚平均，不受天数影响）：上一周 / 上一月；日视图是前 7 天 */
 export function previousWindow(mode: RangeMode, range: Range, weekStart: number): { from: number; to: number } {
   if (mode === 'day') return { from: addDays(range.from, -7), to: range.from };
   return rangeOf(mode, shiftAnchor(mode, range.from, -1), weekStart);
-}
-
-/** 上一期的比较值：日视图用前 7 天的日均，其余同 periodValue */
-export function previousValue(total: number, mode: RangeMode, days: number): number | null {
-  if (days <= 0) return null;
-  return mode === 'day' ? total / days : periodValue(total, mode, days);
 }
 
 export interface Change {
@@ -118,7 +203,11 @@ export function trendRanges(mode: RangeMode, anchor: number, weekStart: number, 
   return out;
 }
 
-/** 每一期的比较值序列；还没开始用或在将来的期为 null */
+/**
+ * 趋势：每一期的日均（日视图是当天时长）。过完的期按整期算；进行中的期按已经过完的日子算，
+ * 还没有过完的日子时：日视图是“到现在为止”，周 / 月视图为 null（几小时的数据没法和整周比）。
+ * 还没开始用或在将来的期为 null。
+ */
 export function trendSeries(
   ranges: Range[],
   mode: RangeMode,
@@ -127,11 +216,14 @@ export function trendSeries(
   totalOf: (from: number, to: number) => number,
 ): Array<number | null> {
   return ranges.map((r) => {
-    const days = countedDays(r, now, firstMs);
-    if (days <= 0) return null;
-    return periodValue(totalOf(r.from, r.to), mode, days);
+    const w = currentWindow(mode, r, now, firstMs);
+    if (!w || (w.partial && mode !== 'day')) return null;
+    return totalOf(w.from, w.to) / w.days;
   });
 }
+
+/** 最后一期还没过完（趋势图里画成空心点） */
+export const lastIsPartial = (ranges: Range[], now: number) => ranges.length > 0 && ranges[ranges.length - 1].to > now;
 
 // ---------- 目标完成情况 ----------
 

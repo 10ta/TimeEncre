@@ -15,7 +15,8 @@ import type { StatsCtx } from './StatRows';
 import { tr } from '../../i18n';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
-const perDay = (ms: number) => tr("{0}/天", formatHm(ms));
+/** 日均；本周还没有过完的日子时是到现在为止的总时长 */
+const show = (ms: number, partial: boolean) => (partial ? formatHm(ms) : tr("{0}/天", formatHm(ms)));
 
 export function ReviewPanel({ ctx, settings, goals, types, typeMap }: { ctx: StatsCtx; settings: Settings; goals: Goal[]; types: CatalogItem[]; typeMap: Map<string, CatalogItem> }) {
   const routines = useRoutines();
@@ -79,12 +80,12 @@ export function ReviewPanel({ ctx, settings, goals, types, typeMap }: { ctx: Sta
         )}
         {review.changes.length > 0 && (
           <div>
-            <dt>{tr("变化最大（较上周）")}</dt>
+            <dt>{tr("超出往常（较前 4 周同期）")}</dt>
             <dd className="review-lines">
               {review.changes.map((c) => (
                 <span key={c.typeId}>
-                  {name(c.typeId)} <b>{c.cur > c.prev ? '↑' : '↓'} {formatHm(Math.abs(c.cur - c.prev))}</b>
-                  <small>{tr("{0} → {1}", perDay(c.prev), perDay(c.cur))}</small>
+                  {name(c.typeId)} <b>{c.cur > c.median ? '↑' : '↓'} {formatHm(Math.abs(c.cur - c.median))}</b>
+                  <small>{tr("往常 {0}（{1}–{2}）→ 本周 {3}", show(c.median, c.partial), formatHm(c.min), formatHm(c.max), show(c.cur, c.partial))}</small>
                 </span>
               ))}
             </dd>

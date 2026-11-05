@@ -1759,7 +1759,7 @@ kbd {
   }
 }
 
-/* 变化：中性灰；设了目标时好为绿、坏为红 */
+/* 变化：在往常范围内是灰色“≈ 常态”；超出范围时用强调色，设了目标时好为绿、坏为红 */
 .chg {
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
@@ -1776,6 +1776,13 @@ kbd {
 .chg.is-bad {
   color: var(--danger);
   font-weight: 600;
+}
+.chg.is-notable {
+  color: var(--accent);
+  font-weight: 600;
+}
+.chg.is-normal {
+  opacity: 0.75;
 }
 .chg-pct {
   opacity: 0.8;
@@ -1794,6 +1801,12 @@ kbd {
 }
 .spark circle {
   fill: var(--c);
+}
+/* 还没过完的一期：空心点 */
+.spark circle.is-partial {
+  fill: var(--surface);
+  stroke: var(--c);
+  stroke-width: 1.4;
 }
 .spark.is-empty {
   display: inline-block;
@@ -1868,6 +1881,10 @@ kbd {
 }
 .linechart circle.is-last {
   fill: var(--c);
+}
+.linechart circle.is-last.is-partial {
+  fill: var(--surface);
+  stroke-dasharray: 2 2;
 }
 .linechart .val {
   font-size: 11px;

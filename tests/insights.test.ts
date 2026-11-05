@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { _setZoneForTest } from '../src/lib/zone';
 import { rangeOf } from '../src/lib/range';
 import {
-  change, countedDays, dailyUnion, goalForKey, goalMarks, hourHeat, periodValue, pomoStats, previousValue, previousWindow,
-  sessionStats, sleepStats, streaks, trendRanges, trendSeries, totalsBy, untrackedIn, weekdayAverages, bedMinuteOfDay,
+  baselineWindows, change, compareSetup, compareToBaseline, currentWindow, dailyUnion, goalForKey, goalMarks, hourHeat, lastIsPartial,
+  pomoStats, previousWindow, sessionStats, sleepStats, streaks, trendRanges, trendSeries, totalsBy, untrackedIn, weekdayAverages, bedMinuteOfDay,
 } from '../src/lib/insights';
 import { daysIn } from '../src/lib/range';
 
@@ -23,33 +23,69 @@ beforeEach(() => _setZoneForTest('Asia/Shanghai'));
 afterEach(() => _setZoneForTest(null));
 
 describe('平均与比较', () => {
-  it('本周还没过完：按到今天为止的天数算日均；开始用之前的日子不算', () => {
-    const week = rangeOf('week', at(15, 10), 1); // 10/12–10/18
-    expect(countedDays(week, at(15, 10), at(1, 0))).toBe(4); // 周一到周四
-    expect(countedDays(week, at(15, 10), at(14, 9))).toBe(2); // 周三才开始用
-    expect(countedDays(week, at(20, 10), at(1, 0))).toBe(7); // 已过完的一周
-    expect(countedDays(week, at(15, 10), null)).toBe(0);
-    expect(periodValue(8 * H, 'week', 4)).toBe(2 * H);
-    expect(periodValue(8 * H, 'month', 28)).toBe(2 * H); // 周均
-    expect(periodValue(5 * H, 'day', 1)).toBe(5 * H);
-    expect(periodValue(5 * H, 'week', 0)).toBeNull();
+  it('本期窗口：进行中的周只算已经过完的日子；周一 / 日视图比到现在为止；开始用之前不算', () => {
+    const week = rangeOf('week', at(15, 10), 1); // 10/12–10/18，10/15 是周四
+    expect(currentWindow('week', week, at(15, 10), at(1, 0))).toEqual({ from: at(12, 0), to: at(15, 0), days: 3, partial: false });
+    expect(currentWindow('week', week, at(15, 10), at(14, 9))).toMatchObject({ from: at(14, 0), days: 1 }); // 周三才开始用
+    expect(currentWindow('week', week, at(20, 10), at(1, 0))).toMatchObject({ to: at(19, 0), days: 7, partial: false }); // 已过完
+    expect(currentWindow('week', week, at(12, 10), at(1, 0))).toEqual({ from: at(12, 0), to: at(12, 10), days: 1, partial: true }); // 周一上午
+    expect(currentWindow('day', rangeOf('day', at(15, 10), 1), at(15, 10), at(1, 0))).toMatchObject({ to: at(15, 10), partial: true });
+    expect(currentWindow('week', week, at(15, 10), null)).toBeNull();
   });
 
-  it('比较窗口：周 / 月是上一期，日是前 7 天的日均', () => {
-    const day = rangeOf('day', at(15, 10), 1);
-    expect(previousWindow('day', day, 1)).toEqual({ from: at(8, 0), to: at(15, 0) });
-    expect(previousWindow('week', rangeOf('week', at(15, 10), 1), 1).from).toBe(at(5, 0));
-    expect(previousValue(14 * H, 'day', 7)).toBe(2 * H);
+  it('往常窗口：前几期的同一段（同几天 / 同一时刻）；开始用之前的期不算', () => {
+    const week = rangeOf('week', at(15, 10), 1);
+    const cur = currentWindow('week', week, at(15, 10), at(1, 0))!;
+    const base = baselineWindows('week', week, cur, at(1, 0), 1);
+    // 10/1 开始用：只有 10/5 那周完整；9/28 那周早于开始用
+    expect(base).toEqual([{ from: at(5, 0), to: at(8, 0), days: 3, partial: false }]);
+    const all = baselineWindows('week', week, cur, Date.parse('2026-09-01T00:00:00+08:00'), 1);
+    expect(all).toHaveLength(4);
+    // 日视图：前 4 周同一个星期几、同一时刻
+    const day = rangeOf('day', at(29, 10), 1);
+    const dw = baselineWindows('day', day, currentWindow('day', day, at(29, 10), at(1, 0))!, at(1, 0), 1);
+    expect(dw.map((w) => [w.from, w.to])).toEqual([[at(22, 0), at(22, 10)], [at(15, 0), at(15, 10)], [at(8, 0), at(8, 10)], [at(1, 0), at(1, 10)]]);
+    expect(previousWindow('week', week, 1).from).toBe(at(5, 0));
+  });
+
+  it('和往常比：中位数、范围；超出范围才算异常，往期不足 3 期不下结论', () => {
+    const week = rangeOf('week', at(29, 10), 1); // 10/26–11/1，周四上午
+    const cur = currentWindow('week', week, at(29, 10), Date.parse('2026-09-01T00:00:00+08:00'))!;
+    const base = baselineWindows('week', week, cur, Date.parse('2026-09-01T00:00:00+08:00'), 1);
+    // 每一期的值：本周 3 天共 6h（日均 2h）；往期 3 天各 4.5h / 6h / 7.5h / 9h（日均 1.5–3h）
+    const totals = new Map([[cur.from, 6 * H], ...base.map((w, i) => [w.from, [4.5, 6, 7.5, 9][i] * H] as [number, number])]);
+    const b = compareToBaseline((f) => totals.get(f)!, cur, base);
+    expect(b).toMatchObject({ cur: 2 * H, median: 2.25 * H, min: 1.5 * H, max: 3 * H, n: 4, outside: 0 });
+    totals.set(cur.from, 12 * H);
+    expect(compareToBaseline((f) => totals.get(f)!, cur, base).outside).toBe(1);
+    expect(compareToBaseline((f) => totals.get(f)!, cur, base.slice(0, 2)).outside).toBe(0);
     expect(change(3 * H, 2 * H)).toEqual({ delta: H, pct: 0.5 });
-    expect(change(3 * H, 0)).toEqual({ delta: 3 * H, pct: null });
-    expect(change(null, 2 * H)).toBeNull();
   });
 
-  it('趋势：最早的在前，最后一期是当前期；开始用之前为 null', () => {
+  it('只比已经过完的日子：今天上午睡够了、学习还没开始，不会让睡眠偏多、学习偏少', () => {
+    const week = rangeOf('week', at(29, 10), 1);
+    const fm = Date.parse('2026-09-01T00:00:00+08:00');
+    const rs = [] as ReturnType<typeof rec>[];
+    // 每天 0–8 睡、19–21 学习，本周和往期一样
+    for (let d = Date.parse('2026-09-28T00:00:00+08:00'); d < at(29, 10); d += 24 * H) {
+      rs.push(rec('z', [d, d + 8 * H]));
+      if (d + 21 * H < at(29, 10)) rs.push(rec('s', [d + 19 * H, d + 21 * H]));
+    }
+    const { compare } = compareSetup('week', week, at(29, 10), fm, 1);
+    const sleep = compare((f, t) => totalsBy(rs, f, t, at(29, 10), (r) => [r.typeId]).get('z') ?? 0)!;
+    const study = compare((f, t) => totalsBy(rs, f, t, at(29, 10), (r) => [r.typeId]).get('s') ?? 0)!;
+    expect(sleep.cur).toBe(sleep.median);
+    expect(study.cur).toBe(study.median);
+    expect(study.cur).toBe(2 * H);
+  });
+
+  it('趋势：过完的期按整期日均；进行中的按已过完的日子，周一还没有过完的日子时为 null', () => {
     const ranges = trendRanges('week', at(15, 10), 1, 3);
     expect(ranges.map((r) => r.from)).toEqual([Date.parse('2026-09-28T00:00:00+08:00'), at(5, 0), at(12, 0)]);
-    const s = trendSeries(ranges, 'week', at(15, 10), at(6, 0), (f) => (f === at(12, 0) ? 8 * H : 14 * H));
-    expect(s).toEqual([null, 14 * H / 6, 2 * H]); // 10/6 才开始用：上周只算 10/6–10/11 这 6 天
+    const s = trendSeries(ranges, 'week', at(15, 10), at(6, 0), (f, t) => (t - f) / 4);
+    expect(s).toEqual([null, 6 * H, 6 * H]); // 10/6 才开始用：上周只算 10/6–10/11
+    expect(trendSeries(ranges, 'week', at(12, 10), at(6, 0), () => H).at(-1)).toBeNull();
+    expect(lastIsPartial(ranges, at(15, 10))).toBe(true);
   });
 
   it('未记录：只算开始用之后、截止到现在', () => {

@@ -4,7 +4,7 @@ import type { DbRecord } from '../../db/db';
 import type { Goal } from '../../schema';
 import { addDays, formatHm, startOfDay } from '../../lib/time';
 import type { Range, RangeMode } from '../../lib/range';
-import { dailyUnion, sessionStats, streaks, type Change, type GoalMark } from '../../lib/insights';
+import { MIN_BASELINE, dailyUnion, lastIsPartial, sessionStats, streaks, type Baseline, type Change, type GoalMark } from '../../lib/insights';
 import { daysIn, rangeLabel } from '../../lib/range';
 import { dayOfMonth, monthShort, shortDate } from '../../i18n/dates';
 import { STATUS_TEXT, evalText } from '../goals/goalView';
@@ -23,37 +23,75 @@ export interface StatsCtx {
   weekStart: number;
 }
 
-/** “平均”那一列的名字：周视图是日均，月视图是周均；日视图没有 */
-export const avgLabel = (mode: RangeMode) => (mode === 'week' ? tr("日均") : mode === 'month' ? tr("周均") : '');
-export const cmpLabel = (mode: RangeMode) => (mode === 'day' ? tr("较前 7 天日均") : mode === 'week' ? tr("较上周") : tr("较上月"));
+/** “平均”那一列的名字：周 / 月视图是日均（只算已经过完的日子）；日视图没有 */
+export const avgLabel = (mode: RangeMode) => (mode === 'day' ? '' : tr("日均"));
+/** 比较那一列的名字 */
+export const cmpLabel = (mode: RangeMode) =>
+  mode === 'day' ? tr("较近 4 周同一天") : mode === 'week' ? tr("较近 4 周同期") : tr("较近 3 月同期");
 
-/** 比较值的写法：日视图是当天时长，周视图是“每天”，月视图是“每周” */
-export const valueText = (mode: RangeMode, v: number) =>
-  mode === 'day' ? formatHm(v) : mode === 'week' ? tr("{0}/天", formatHm(v)) : tr("{0}/周", formatHm(v));
+/** 比较值的写法：到现在为止的是总时长，其余是“每天” */
+export const valueText = (v: number, partial: boolean) => (partial ? formatHm(v) : tr("{0}/天", formatHm(v)));
 
 /** 趋势里每一期的短标签 */
 export const periodLabel = (mode: RangeMode, r: Range) =>
   mode === 'day' ? String(dayOfMonth(r.from)) : mode === 'week' ? shortDate(r.from) : monthShort(r.from, r.from);
 
+/** 悬停提示：往常是多少、范围多少、比的是哪一段 */
+export function baselineTitle(b: Baseline): string {
+  if (b.median == null) return tr("往前还没有可比较的同期数据");
+  const what = b.partial ? tr("到现在为止") : tr("已经过完的日子");
+  return tr("本期（{0}）：{1}；往常（{2} 期同期中位数）：{3}，范围 {4}–{5}", what, valueText(b.cur, b.partial), b.n, valueText(b.median, b.partial), formatHm(b.min!), formatHm(b.max!));
+}
+
 /**
- * 变化：↑ / ↓ 加差值和百分比。只有这一项设了目标时才分好坏上色：
- * “至少”型目标增加是好事（绿），“至多”型目标增加是坏事（红）；其余保持中性灰。
+ * 和往常（往前几期同一段的中位数）比较。
+ * 落在往常范围（往期最小–最大）里就是“≈ 常态”，不标箭头；超出范围才标 ↑ / ↓：
+ * 这一项设了目标时分好坏上色（“至少”型多了是好事），否则用强调色、不分好坏。
+ * 差得很少（5 分钟或往常的 10% 以内）也算常态。往期不足 3 期时只显示差值，灰色。
  */
-export function ChangeBadge({ cmp, goodWhenUp, prevText }: { cmp: Change | null; goodWhenUp: boolean | null; prevText: string | null }) {
+export function BaselineBadge({ b, goodWhenUp }: { b: Baseline | null; goodWhenUp: boolean | null }) {
+  if (!b || b.median == null) return <span className="chg is-none" title={b ? baselineTitle(b) : undefined}>—</span>;
+  const title = baselineTitle(b);
+  const delta = b.cur - b.median;
+  const pct = b.median > 0 ? delta / b.median : null;
+  // 差得很少（5 分钟或往常的 10% 以内）的，即使刚好超出范围也不值得标出来
+  const tiny = Math.abs(delta) < Math.max(5 * 60_000, b.median * 0.1);
+  if (b.n >= MIN_BASELINE && (b.outside === 0 || tiny))
+    return (
+      <span className="chg is-neutral is-normal" title={title}>
+        ≈ {tr("常态")}
+      </span>
+    );
+  if (tiny)
+    return (
+      <span className="chg is-neutral" title={title}>
+        → {tr("持平")}
+      </span>
+    );
+  const up = delta > 0;
+  const tone = b.outside === 0 ? 'is-neutral' : goodWhenUp == null ? 'is-notable' : up === goodWhenUp ? 'is-good' : 'is-bad';
+  return (
+    <span className={`chg ${tone}`} title={title}>
+      {up ? '↑' : '↓'} {formatHm(Math.abs(delta))}
+      {pct != null && <span className="chg-pct"> {Math.round(Math.abs(pct) * 100)}%</span>}
+    </span>
+  );
+}
+
+/** 作息等按晚平均的指标仍和上一期比：↑ / ↓ 加差值和百分比，不分好坏 */
+export function ChangeBadge({ cmp, prevText }: { cmp: Change | null; prevText: string | null }) {
   if (!cmp) return <span className="chg is-none">—</span>;
   const flat = Math.abs(cmp.delta) < 60_000 || (cmp.pct != null && Math.abs(cmp.pct) < 0.03);
-  const up = cmp.delta > 0;
-  const tone = flat || goodWhenUp == null ? 'is-neutral' : up === goodWhenUp ? 'is-good' : 'is-bad';
   const title = prevText ? tr("上一期：{0}", prevText) : undefined;
   if (flat)
     return (
-      <span className={`chg ${tone}`} title={title}>
+      <span className="chg is-neutral" title={title}>
         → {tr("持平")}
       </span>
     );
   return (
-    <span className={`chg ${tone}`} title={title}>
-      {up ? '↑' : '↓'} {formatHm(Math.abs(cmp.delta))}
+    <span className="chg is-neutral" title={title}>
+      {cmp.delta > 0 ? '↑' : '↓'} {formatHm(Math.abs(cmp.delta))}
       {cmp.pct != null && <span className="chg-pct"> {Math.round(Math.abs(cmp.pct) * 100)}%</span>}
     </span>
   );
@@ -83,7 +121,7 @@ export function GoalMarksView({ goal, marks, now }: { goal: Goal; marks: GoalMar
   );
 }
 
-/** 点开一行：大折线图 + 本期 / 上期 / 连续天数 / 分段 */
+/** 点开一行：大折线图 + 本期 / 往常 / 连续天数 / 分段 */
 export function RowDetail({
   ctx,
   color,
@@ -91,8 +129,7 @@ export function RowDetail({
   series,
   match,
   untracked,
-  cur,
-  prev,
+  baseline,
 }: {
   ctx: StatsCtx;
   color: string;
@@ -101,8 +138,7 @@ export function RowDetail({
   /** 哪些记录算这一行（未记录这一行没有） */
   match: ((r: DbRecord) => boolean) | null;
   untracked?: boolean;
-  cur: number | null;
-  prev: number | null;
+  baseline: Baseline | null;
 }) {
   const { mode, range, records, now, firstMs, trend } = ctx;
   const extra = useMemo(() => {
@@ -115,6 +151,7 @@ export function RowDetail({
     const ss = sessionStats(mine, range.from, range.to, now);
     return { st, ss };
   }, [match, records, now, firstMs, range.from, range.to]);
+  const b = baseline;
 
   return (
     <div className="row-detail" style={{ '--c': color } as CSSProperties}>
@@ -124,15 +161,19 @@ export function RowDetail({
         color={color}
         format={(v) => formatHm(v)}
         label={tr("{0}：最近 {1} 期", label, trend.length)}
+        partialLast={lastIsPartial(trend, now)}
       />
       <dl className="detail-grid">
         <div>
-          <dt>{mode === 'day' ? tr("当天") : avgLabel(mode)}</dt>
-          <dd>{cur == null ? '—' : valueText(mode, cur)}</dd>
+          <dt>{!b ? tr("本期") : b.partial ? tr("到现在为止") : mode === 'day' ? tr("当天") : tr("日均（已过完的 {0} 天）", b.days)}</dt>
+          <dd>{b ? valueText(b.cur, b.partial) : '—'}</dd>
         </div>
         <div>
-          <dt>{cmpLabel(mode)}</dt>
-          <dd>{prev == null ? '—' : valueText(mode, prev)}</dd>
+          <dt>{tr("往常（同期中位数）")}</dt>
+          <dd>
+            {b?.median == null ? '—' : valueText(b.median, b.partial)}
+            {b?.median != null && <small>{tr("{0} 期 · 范围 {1}–{2}", b.n, formatHm(b.min!), formatHm(b.max!))}</small>}
+          </dd>
         </div>
         {extra && (
           <>

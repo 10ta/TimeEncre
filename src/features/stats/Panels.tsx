@@ -9,12 +9,12 @@ import { addDays, formatHm, startOfDay } from '../../lib/time';
 import { daysIn } from '../../lib/range';
 import { fromParts, getHour12, zparts } from '../../lib/zone';
 import {
-  bedMinuteOfDay, change, countedDays, dailyUnion, dailyUntracked, hourHeat, periodValue, pomoStats, previousValue, sessionStats,
+  bedMinuteOfDay, change, compareSetup, dailyUnion, dailyUntracked, hourHeat, lastIsPartial, pomoStats, sessionStats,
   sleepStats, streaks, trendSeries, unionTotal, weekdayAverages, type MeanSd,
 } from '../../lib/insights';
 import { clockText, hourLabel, weekdayShort } from '../../i18n/dates';
 import { isPomodoroComment, POMODORO_BREAK_COMMENT } from '../../pomodoro/store';
-import { ChangeBadge, avgLabel, cmpLabel, valueText, type StatsCtx } from './StatRows';
+import { BaselineBadge, ChangeBadge, avgLabel, cmpLabel, type StatsCtx } from './StatRows';
 import { Sparkline } from './charts';
 import { useAutosave } from '../../ui/useAutosave';
 import { tr } from '../../i18n';
@@ -43,6 +43,9 @@ function ShiftBadge({ cur, prev }: { cur: MeanSd | null; prev: MeanSd | null }) 
   if (Math.abs(d) < 5) return <span className="chg is-neutral">→ {tr("持平")}</span>;
   return <span className="chg is-neutral">{d < 0 ? tr("早 {0}", formatHm(-d * 60_000)) : tr("晚 {0}", formatHm(d * 60_000))}</span>;
 }
+
+/** 作息按晚平均，和上一期比（平均值不受本期过了几天影响） */
+const prevLabel = (mode: StatsCtx['mode']) => (mode === 'day' ? tr("前 7 天") : mode === 'week' ? tr("上周") : tr("上月"));
 
 /** 作息用哪个活动：设置过就用设置的，否则用默认的“睡眠”（如果有） */
 export function sleepTypeOf(settings: Settings, types: CatalogItem[]): string | null {
@@ -105,11 +108,11 @@ export function SleepPanel({ ctx, settings, types }: { ctx: StatsCtx; settings: 
               <dd>
                 {formatHm(data.cur.avgMs)}
                 <small>{tr("{0} 晚", data.cur.nights)}{data.cur.naps ? tr(" · 小睡 {0} 次", data.cur.naps) : ''}</small>
-                <ChangeBadge cmp={data.prev.nights ? change(data.cur.avgMs, data.prev.avgMs) : null} goodWhenUp={null} prevText={data.prev.nights ? formatHm(data.prev.avgMs) : null} />
+                <ChangeBadge cmp={data.prev.nights ? change(data.cur.avgMs, data.prev.avgMs) : null} prevText={data.prev.nights ? formatHm(data.prev.avgMs) : null} />
               </dd>
             </div>
           </dl>
-          <p className="hint">{tr("一条睡眠记录算一晚（中途醒来暂停也算同一晚），按起床时间归到哪一天；不到 3 小时的算小睡。波动越小作息越规律。比较对象：{0}。", cmpLabel(ctx.mode))}</p>
+          <p className="hint">{tr("一条睡眠记录算一晚（中途醒来暂停也算同一晚），按起床时间归到哪一天；不到 3 小时的算小睡。波动越小作息越规律。比较对象：{0}。", prevLabel(ctx.mode))}</p>
         </>
       )}
     </Section>
@@ -180,20 +183,19 @@ function MetricCard({
   onSave: (patch: Partial<StatsMetric>) => Promise<void> | void;
   onDelete: () => void;
 }) {
-  const { mode, range, prevWin, trend, records, now, firstMs } = ctx;
+  const { mode, range, trend, records, now, firstMs, weekStart } = ctx;
   const data = useMemo(() => {
     const mine = records.filter((r) => metric.typeIds.includes(r.typeId) || r.tagIds.some((t) => metric.tagIds.includes(t)));
     const total = unionTotal(mine, range.from, range.to, now);
-    const days = countedDays(range, now, firstMs);
-    const cur = periodValue(total, mode, days);
-    const prev = previousValue(unionTotal(mine, prevWin.from, prevWin.to, now), mode, countedDays(prevWin, now, firstMs));
-    const series = trendSeries(trend, mode, now, firstMs, (f, t) => unionTotal(mine, f, t, now));
+    const valueOf = (f: number, t: number) => unionTotal(mine, f, t, now);
+    const baseline = compareSetup(mode, range, now, firstMs, weekStart).compare(valueOf);
+    const series = trendSeries(trend, mode, now, firstMs, valueOf);
     const ss = sessionStats(mine, range.from, range.to, now);
     const today = startOfDay(now);
     const from = Math.max(addDays(today, -364), firstMs == null ? today : startOfDay(firstMs));
     const st = streaks(dailyUnion(mine, from, addDays(today, 1), now), daysIn(from, addDays(today, 1)));
-    return { total, cur, prev, series, ss, st };
-  }, [metric, records, range, prevWin, trend, mode, now, firstMs]);
+    return { total, baseline, series, ss, st };
+  }, [metric, records, range, trend, mode, now, firstMs, weekStart]);
   const color = typeMap.get(metric.typeIds[0])?.color ?? tagMap.get(metric.tagIds[0])?.color ?? 'var(--accent)';
   const parts = [...metric.typeIds.map((id) => typeMap.get(id)), ...metric.tagIds.map((id) => tagMap.get(id))].filter(Boolean) as CatalogItem[];
 
@@ -210,11 +212,11 @@ function MetricCard({
         <span className="metric-total">{formatHm(data.total)}</span>
         {mode !== 'day' && (
           <span className="metric-avg">
-            {avgLabel(mode)} {data.cur == null ? '—' : formatHm(data.cur)}
+            {avgLabel(mode)} {data.baseline && !data.baseline.partial ? formatHm(data.baseline.cur) : '—'}
           </span>
         )}
-        <ChangeBadge cmp={change(data.cur, data.prev)} goodWhenUp={null} prevText={data.prev == null ? null : valueText(mode, data.prev)} />
-        <Sparkline values={data.series} color={color} label={tr("{0} 的趋势", metric.name)} />
+        <BaselineBadge b={data.baseline} goodWhenUp={null} />
+        <Sparkline values={data.series} color={color} label={tr("{0} 的趋势", metric.name)} partialLast={lastIsPartial(trend, now)} />
       </div>
       <p className="metric-extra">
         {tr("{0} 段 · 平均 {1} · 最长 {2}", data.ss.count, formatHm(data.ss.avgMs), formatHm(data.ss.longestMs))}
@@ -383,17 +385,18 @@ function HeatRow({ label, cells }: { label: string; cells: number[] }) {
 // ---------- Pomo ----------
 
 export function PomoPanel({ ctx, settings }: { ctx: StatsCtx; settings: Settings }) {
-  const { records, range, prevWin, mode, now, firstMs } = ctx;
+  const { records, range, mode, now, firstMs, weekStart } = ctx;
   const workMin = settings.pomodoro.workMin;
   const data = useMemo(() => {
     const isFocus = (r: { comment?: string }) => isPomodoroComment(r.comment ?? '');
     const isBreak = (r: { comment?: string }) => r.comment === POMODORO_BREAK_COMMENT;
     const cur = pomoStats(records, range.from, range.to, now, workMin, isFocus, isBreak);
-    const prev = pomoStats(records, prevWin.from, prevWin.to, now, workMin, isFocus, isBreak);
-    return { cur, prev, days: countedDays(range, now, firstMs), prevDays: countedDays(prevWin, now, firstMs) };
-  }, [records, range, prevWin, now, firstMs, workMin]);
-  if (data.cur.focusMs === 0 && data.prev.focusMs === 0) return null;
-  const perDay = (n: number, d: number) => (d > 0 ? n / d : 0);
+    // 完成的番茄数也按同期比较：已经过完的日子的日均 vs 往常
+    const done = compareSetup(mode, range, now, firstMs, weekStart).compare((f, t) => pomoStats(records, f, t, now, workMin, isFocus, isBreak).done);
+    return { cur, done };
+  }, [records, range, mode, now, firstMs, weekStart, workMin]);
+  if (data.cur.focusMs === 0 && !data.done?.median) return null;
+  const b = data.done;
   const share = data.cur.focusMs + data.cur.breakMs > 0 ? data.cur.focusMs / (data.cur.focusMs + data.cur.breakMs) : null;
   return (
     <Section title="Pomo">
@@ -402,10 +405,12 @@ export function PomoPanel({ ctx, settings }: { ctx: StatsCtx; settings: Settings
           <dt>{tr("完成的番茄")}</dt>
           <dd>
             {data.cur.done}
-            {mode !== 'day' && <small>{tr("日均 {0}", perDay(data.cur.done, data.days).toFixed(1))}</small>}
-            <span className="chg is-neutral">
-              {tr("{0}：日均 {1}", cmpLabel(mode), perDay(data.prev.done, data.prevDays).toFixed(1))}
-            </span>
+            {mode !== 'day' && b && !b.partial && <small>{tr("日均 {0}", b.cur.toFixed(1))}</small>}
+            {b?.median != null && (
+              <span className="chg is-neutral">
+                {b.partial ? tr("{0}：{1}", cmpLabel(mode), b.median.toFixed(1)) : tr("{0}：日均 {1}", cmpLabel(mode), b.median.toFixed(1))}
+              </span>
+            )}
           </dd>
         </div>
         <div>

@@ -77,6 +77,19 @@ describe('周复盘', () => {
     expect(r.rating.n).toBe(7);
   });
 
+  it('变化只列超出往常范围的：和前 4 周同几天比，周中不会因为“才过了几天”全是下降', () => {
+    // 9/21 起每天学习 2h、上网 1h；本周（10/19–）上网涨到每天 3h；“现在”是 10/22 周四上午
+    const records = [];
+    for (let day = at(1, 0) - 10 * 24 * H; day < at(22, 0); day += 24 * H) {
+      records.push(rec('study', day + 9 * H, day + 11 * H));
+      const web = day >= at(19, 0) ? 3 : 1;
+      records.push(rec('web', day + 20 * H, day + (20 + web) * H));
+    }
+    const r = weeklyReview(input({ records, now: at(22, 10), firstMs: at(1, 0) - 10 * 24 * H }));
+    expect(r.changes.map((c) => c.typeId)).toEqual(['web']);
+    expect(r.changes[0]).toMatchObject({ cur: 3 * H, median: H, partial: false });
+  });
+
   it('样本不够不下结论', () => {
     const ratings = new Map([[dk(20), 5], [dk(21), 1]]);
     const r = weeklyReview(input({ ratings }));

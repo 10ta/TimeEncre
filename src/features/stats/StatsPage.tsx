@@ -6,11 +6,11 @@ import { daysIn, rangeOf, shiftAnchor, type RangeMode } from '../../lib/range';
 import { splitByDay, type DaySeg } from '../../lib/segments';
 import type { DbRecord } from '../../db/db';
 import {
-  change, countedDays, goalForKey, goalMarks, periodValue, previousValue, previousWindow, totalsBy, trendRanges, untrackedIn,
+  compareSetup, goalForKey, goalMarks, lastIsPartial, previousWindow, totalsBy, trendRanges, trendSeries, untrackedIn,
 } from '../../lib/insights';
 import { RangeNav } from '../shared/RangeNav';
 import { DailyBars, DayTimeline, Donut, Sparkline, type Slice } from './charts';
-import { ChangeBadge, GoalMarksView, RowDetail, avgLabel, cmpLabel, valueText, type StatsCtx } from './StatRows';
+import { BaselineBadge, GoalMarksView, RowDetail, avgLabel, cmpLabel, type StatsCtx } from './StatRows';
 import { MetricsPanel, PatternsPanel, PomoPanel, SleepPanel } from './Panels';
 import { goalKind } from '../../lib/goals';
 import { ReviewPanel } from './ReviewPanel';
@@ -56,20 +56,20 @@ export function StatsPage() {
     const byType = groupBy === 'type' ? totals : totalsBy(records, range.from, range.to, now, (r) => [r.typeId]);
     const tracked = [...byType.values()].reduce((a, b) => a + b, 0);
     const untracked = untrackedIn(records, range.from, range.to, now, fm);
-    const days = countedDays(range, now, fm);
-    const prevTotals = totalsBy(records, prevWin.from, prevWin.to, now, keysOf);
-    const prevDays = countedDays(prevWin, now, fm);
-    const prevUntracked = untrackedIn(records, prevWin.from, prevWin.to, now, fm);
-    // 趋势：每一期各键的时长，再换成比较值
-    const trendDays = trend.map((r) => countedDays(r, now, fm));
-    const trendTotals = trend.map((r) => totalsBy(records, r.from, r.to, now, keysOf));
-    const trendUntracked = trend.map((r) => untrackedIn(records, r.from, r.to, now, fm));
-    const seriesOf = (key: string) =>
-      key === UNTRACKED
-        ? trend.map((_, i) => (trendDays[i] ? periodValue(trendUntracked[i], mode, trendDays[i]) : null))
-        : trend.map((_, i) => (trendDays[i] ? periodValue(trendTotals[i].get(key) ?? 0, mode, trendDays[i]) : null));
-    return { totals, byType, tracked, untracked, days, prevTotals, prevDays, prevUntracked, seriesOf };
-  }, [records, firstMs, range.from, range.to, prevWin, trend, now, keysOf, groupBy, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+    // 同一个窗口的各键时长只算一次：比较（本期 + 往常几期）和趋势各行共用
+    const cache = new Map<string, { totals: Map<string, number>; untracked: number }>();
+    const at = (f: number, t: number) => {
+      const k = `${f}-${t}`;
+      let hit = cache.get(k);
+      if (!hit) cache.set(k, (hit = { totals: totalsBy(records, f, t, now, keysOf), untracked: untrackedIn(records, f, t, now, fm) }));
+      return hit;
+    };
+    const valueOf = (key: string) => (f: number, t: number) => (key === UNTRACKED ? at(f, t).untracked : at(f, t).totals.get(key) ?? 0);
+    const setup = compareSetup(mode, range, now, fm, ws);
+    const baselineOf = (key: string) => setup.compare(valueOf(key));
+    const seriesOf = (key: string) => trendSeries(trend, mode, now, fm, valueOf(key));
+    return { totals, byType, tracked, untracked, baselineOf, seriesOf };
+  }, [records, firstMs, range.from, range.to, trend, now, keysOf, groupBy, mode, ws]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 趋势：周/月看每日堆叠柱，日看时间轴
   const visibleTo = Math.min(range.to, addDays(today, 1));
@@ -85,7 +85,8 @@ export function StatsPage() {
   }, [records, range.from, visibleTo, now]);
 
   if (!computed || !typeMap || !tagMap || !settings || !records || !goals || !types) return null;
-  const { totals, byType, tracked, untracked, days: nDays, prevTotals, prevDays, prevUntracked, seriesOf } = computed;
+  const { totals, byType, tracked, untracked, baselineOf, seriesOf } = computed;
+  const partialLast = lastIsPartial(trend, now);
   const fm = firstMs ?? null;
   const ctx: StatsCtx = { mode, range, prevWin, trend, records, now, firstMs: fm, weekStart: ws };
 
@@ -114,16 +115,14 @@ export function StatsPage() {
   // 柱状图画满整个区间（未来的日子留空），保持每周 7 格、每月按天数排布
   const days = daysIn(range.from, range.to);
 
-  const rowInfo = (key: string, ms: number) => {
+  const rowInfo = (key: string) => {
     const isGap = key === UNTRACKED;
-    const prevMs = isGap ? prevUntracked : prevTotals.get(key) ?? 0;
-    const cur = periodValue(ms, mode, nDays);
-    const prev = previousValue(prevMs, mode, prevDays);
     const goal = isGap || key === NO_TAG ? undefined : goalForKey(goals, key, groupBy);
+    const baseline = baselineOf(key);
     return {
-      cur,
-      prev,
-      cmp: change(cur, prev),
+      baseline,
+      // 日均只算已经过完的日子；本周 / 本月还没有过完的日子时没有日均
+      avg: baseline && !baseline.partial ? baseline.cur : null,
       goal,
       marks: goal ? goalMarks(goal, records, range, now, fm, ws) : null,
       series: seriesOf(key),
@@ -202,7 +201,7 @@ export function StatsPage() {
               </div>
               <ul className={`legend is-${mode}`}>
                 {rows.map((s) => {
-                  const info = rowInfo(s.key, s.ms);
+                  const info = rowInfo(s.key);
                   const open = openRow === s.key;
                   // 只有按时长计的目标（累计、几天达标）才能说时长增加是好是坏
                   const goodWhenUp = info.goal && ['duration', 'days'].includes(goalKind(info.goal)) ? info.goal.direction === 'atLeast' : null;
@@ -211,12 +210,12 @@ export function StatsPage() {
                       <button type="button" className="legend-row" aria-expanded={open} onClick={() => setOpenRow(open ? null : s.key)}>
                         <span className="legend-name">{s.key === UNTRACKED ? tr("未记录") : s.label}</span>
                         <span className="legend-ms">{formatHm(s.ms)}</span>
-                        {mode !== 'day' && <span className="legend-avg" data-label={`${avgLabel(mode)} `}>{info.cur == null ? '—' : formatHm(info.cur)}</span>}
+                        {mode !== 'day' && <span className="legend-avg" data-label={`${avgLabel(mode)} `}>{info.avg == null ? '—' : formatHm(info.avg)}</span>}
                         <span className="legend-chg">
-                          <ChangeBadge cmp={info.cmp} goodWhenUp={goodWhenUp} prevText={info.prev == null ? null : valueText(mode, info.prev)} />
+                          <BaselineBadge b={info.baseline} goodWhenUp={goodWhenUp} />
                         </span>
                         <span className="legend-spark">
-                          <Sparkline values={info.series} color={s.key === UNTRACKED ? 'var(--muted)' : s.color} label={tr("{0} 的趋势", s.label)} />
+                          <Sparkline values={info.series} color={s.key === UNTRACKED ? 'var(--muted)' : s.color} label={tr("{0} 的趋势", s.label)} partialLast={partialLast} />
                         </span>
                         <span className="legend-pct">{base ? ((s.ms / base) * 100).toFixed(1) : '0.0'}%</span>
                         <span className="legend-bar" aria-hidden="true">
@@ -236,8 +235,7 @@ export function StatsPage() {
                           series={info.series}
                           match={info.match}
                           untracked={s.key === UNTRACKED}
-                          cur={info.cur}
-                          prev={info.prev}
+                          baseline={info.baseline}
                         />
                       )}
                     </li>
@@ -259,11 +257,11 @@ export function StatsPage() {
           )}
           <p className="hint">
             {mode === 'day'
-              ? tr("箭头和当天之前 7 天的日均比较；趋势是最近 14 天。")
+              ? tr("比较：今天到现在为止，和前 4 周同一个星期几的同一时刻比。趋势是最近 14 天，今天是空心点。")
               : mode === 'week'
-                ? tr("日均按本周到今天为止的天数算（开始使用之前的日子不算）；箭头比较的是日均。趋势是最近 8 周的日均。")
-                : tr("周均 = 日均 × 7，按本月到今天为止的天数算；箭头比较的是周均。趋势是最近 6 个月的周均。")}{' '}
-            {tr("只有设了目标（只针对这一项）的活动，箭头才分红绿，并显示 ✓ / ✗。点一行看详情。")}
+                ? tr("比较：本周已经过完的日子（今天不算），和前 4 周的同几天比日均。趋势是最近 8 周的日均，本周是空心点。")
+                : tr("比较：本月已经过完的日子（今天不算），和前 3 个月的同几天比日均。趋势是最近 6 个月的日均，本月是空心点。")}{' '}
+            {tr("“往常”是这几期的中位数；落在它们的最低–最高之间显示“≈ 常态”，超出才标箭头。设了目标（只针对这一项）的，箭头分红绿并显示 ✓ / ✗。悬停看具体数字，点一行看详情。")}
           </p>
 
           <section className="trend">
