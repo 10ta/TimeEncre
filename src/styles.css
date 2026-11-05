@@ -3313,6 +3313,11 @@ body.has-dock .floating-sheet-wrap {
   outline-offset: -1px;
 }
 
+/* 想拖到将来：预览停在“现在”，换成虚线提示 */
+.cal-block.is-dragging.is-clamped {
+  outline-style: dashed;
+}
+
 span.cal-block.is-dragging {
   pointer-events: none;
 }
@@ -3356,6 +3361,19 @@ span.cal-block.is-dragging {
 }
 .cal.is-day .cal-flip.is-next {
   bottom: 0.5rem;
+}
+/* 日视图左右翻页：贴在两侧 */
+.cal.is-day .cal-flip.is-x {
+  top: 0.5rem;
+  bottom: auto;
+  transform: none;
+}
+.cal.is-day .cal-flip.is-x.is-prev {
+  left: 0.5rem;
+}
+.cal.is-day .cal-flip.is-x.is-next {
+  left: auto;
+  right: 0.5rem;
 }
 
 

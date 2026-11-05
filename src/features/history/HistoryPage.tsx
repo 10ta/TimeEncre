@@ -274,7 +274,7 @@ export function HistoryPage() {
             }}
           />
           <p className="cal-hint">
-            {tr("拖动色块的上下边缘调整时间，拖动中间整段平移，可以拖到别的日子；在空档里拖出一段可以只补录这一段。拖到日历边缘停一下会翻到前 / 后一天（周视图为一周）。触屏上：点一下选中后拖动，再点一下打开编辑。")}
+            {tr("拖动色块的上下边缘调整时间，拖动中间整段平移，可以拖到别的日子（不能拖到将来）；在空档里拖出一段可以只补录这一段。拖到日历左右边缘停一下会翻到前 / 后一天（周视图为一周），日视图滚到头后的上下边缘也可以。触屏上：点一下选中后拖动，再点一下打开编辑。")}
           </p>
           {sheet?.recId && (
             <RecordSheet key={sheet.recId} recId={sheet.recId} fresh={sheet.fresh} records={records} typeMap={typeMap} onClose={() => setSheet(null)} />

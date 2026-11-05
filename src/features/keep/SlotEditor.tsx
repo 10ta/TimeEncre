@@ -1,5 +1,6 @@
 // 条目的预约时间段。和记录的“时间段”用同一套：同样的日期时刻框、同样的一行“开始 – 结束 ×”，
 // 改了就自动保存；点空白处 / 按 Esc 收起（收起前先提交正在输入的值）；× 取消预约。
+// 改开始时结束跟着平移（保持时长）；改结束的时刻按开始那天理解，跨午夜的短时段自动算次日（见 lib/slotEdit）。
 import { useRef, useState } from 'react';
 import { DateTimeField } from '../../ui/DateTimeField';
 import { IconButton } from '../../ui/Icon';
@@ -11,6 +12,7 @@ import { useOutsideClose } from '../../ui/useOutsideClose';
 import { commitAndClose } from '../../ui/commitAndClose';
 import type { KeepItem } from '../../schema';
 import { slotMs } from './model';
+import { moveSlotStart, setSlotEnd } from '../../lib/slotEdit';
 import { tr } from '../../i18n';
 
 const H = 3_600_000;
@@ -37,6 +39,11 @@ export function SlotEditor({ item, onClose }: { item: KeepItem; onClose: () => v
     if (v && !removed.current) void updateItem(item.id, { slot: { start: toIso(fromLocalInput(v[0])), end: toIso(fromLocalInput(v[1])) } });
   });
 
+  const apply = (next: { start: string; end: string }) => {
+    setStart(next.start);
+    setEnd(next.end);
+  };
+
   const ref = useRef<HTMLDivElement>(null);
   useOutsideClose(true, ref, onClose);
 
@@ -44,9 +51,9 @@ export function SlotEditor({ item, onClose }: { item: KeepItem; onClose: () => v
     <div className="field slot-editor" ref={ref} onKeyDown={(ev) => ev.key === 'Escape' && commitAndClose(ref.current, onClose)}>
       <ol className="iv-list">
         <li>
-          <DateTimeField label={tr("预约开始")} value={start} onChange={setStart} />
+          <DateTimeField label={tr("预约开始")} value={start} onChange={(v) => apply(moveSlotStart({ start, end }, v))} />
           <span className="iv-sep" aria-hidden="true">–</span>
-          <DateTimeField label={tr("预约结束")} value={end} onChange={setEnd} />
+          <DateTimeField label={tr("预约结束")} value={end} onChange={(v) => apply(setSlotEnd({ start, end }, v))} />
           <IconButton
             icon="close"
             label={tr("取消预约")}

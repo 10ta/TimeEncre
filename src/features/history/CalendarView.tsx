@@ -2,6 +2,8 @@
 // 同时进行的活动在重叠的那一簇里并排；点色块编辑，点空档处理。
 // 拖动（方案 D）：拖色块上下边缘改开始 / 结束，拖色块中间整段平移，在空档里拖选一段再补录。
 // 鼠标移动超过几像素才算拖动，否则仍是点击。
+// 翻页：拖到左右边缘停一下翻到前 / 后一天（周视图为一周）；日视图滚到头后的上下边缘也可以。
+// 有 Keep 预约的那天，只有和预约时间重叠的那一簇色块让出右侧，其余时间照常占满整列。
 // 触屏：第一次轻点只选中（出现手柄，可以拖），再点一下才打开编辑面板——面板在手机上会盖住时间轴。
 // 只有选中的色块 / 空档接管手势，没选中的照常滚动页面：浏览器在手指按下时就决定交给滚动还是页面，
 // 长按后再拦截并不可靠（iOS 尤甚）。
@@ -32,6 +34,8 @@ interface Block {
   end: number;
   lane: number;
   lanes: number;
+  /** 所在重叠簇的序号（同一簇的色块并排，宽度要一致） */
+  cluster: number;
   /** 这一块对应记录里的第几段 */
   ivIndex: number;
   canStart: boolean;
@@ -39,7 +43,7 @@ interface Block {
   canMove: boolean;
 }
 
-type Item = Omit<Block, 'lane' | 'lanes'>;
+type Item = Omit<Block, 'lane' | 'lanes' | 'cluster'>;
 
 /** 按重叠分簇，簇内贪心分配并排的列 */
 function layout(items: Item[]): Block[] {
@@ -48,12 +52,14 @@ function layout(items: Item[]): Block[] {
   let cluster: Block[] = [];
   let clusterEnd = -Infinity;
   let laneEnds: number[] = [];
+  let clusterNo = 0;
   const flush = () => {
     const n = laneEnds.length;
     for (const b of cluster) b.lanes = n;
     out.push(...cluster);
     cluster = [];
     laneEnds = [];
+    clusterNo++;
   };
   for (const it of sorted) {
     if (it.start >= clusterEnd && cluster.length) flush();
@@ -62,7 +68,7 @@ function layout(items: Item[]): Block[] {
       lane = laneEnds.length;
       laneEnds.push(it.end);
     } else laneEnds[lane] = it.end;
-    cluster.push({ ...it, lane, lanes: 1 });
+    cluster.push({ ...it, lane, lanes: 1, cluster: clusterNo });
     clusterEnd = Math.max(clusterEnd, it.end);
   }
   if (cluster.length) flush();
@@ -111,6 +117,8 @@ type Drag =
       /** 按下的那一块的并排位置，预览沿用 */
       lane: number;
       lanes: number;
+      /** 想拖到的位置被“现在”挡住了（记录不能在将来） */
+      clamped?: boolean;
     }
   | { kind: 'gap'; gap: Span; anchor: number; preview: Span };
 
@@ -131,6 +139,8 @@ export interface Plan {
 /** 有预约的那天，右侧留给预约框的宽度 */
 const PLAN_W = { day: '26%', week: '34%' };
 
+const overlaps = (a: { start: number; end: number }, b: { start: number; end: number }) => a.start < b.end && a.end > b.start;
+
 /** 一天里的预约框分并排的列 */
 function planLanes(plans: Plan[]): Array<Plan & { lane: number; lanes: number }> {
   const sorted = [...plans].sort((a, b) => a.start - b.start || b.end - a.end);
@@ -147,6 +157,8 @@ function planLanes(plans: Plan[]): Array<Plan & { lane: number; lanes: number }>
 /** 停在边缘多久翻页 */
 const FLIP_HOLD_MS = 600;
 const FLIP_ZONE_PX = 28;
+/** 日视图左右翻页前至少要横着拖开的距离 */
+const SIDE_FLIP_MIN_PX = 40;
 
 const isDraggedPiece = (d: Drag | null, b: Block) => d?.kind === 'rec' && d.rec.id === b.rec.id && d.ivIndex === b.ivIndex;
 
@@ -197,8 +209,8 @@ export function CalendarView({
   const suppressClick = useRef(false);
   const lastPointer = useRef<{ x: number; y: number } | null>(null);
   /** 正在边缘停留：方向和开始停留的时刻 */
-  const flipRef = useRef<{ dir: -1 | 1; since: number } | null>(null);
-  const [flip, setFlip] = useState<-1 | 1 | null>(null);
+  const flipRef = useRef<{ dir: -1 | 1; axis: 'x' | 'y'; since: number } | null>(null);
+  const [flip, setFlip] = useState<{ dir: -1 | 1; axis: 'x' | 'y' } | null>(null);
   /** 触屏上第一次轻点选中的色块 / 空档（'rec:<id>' 或 'gap:<开始时间>'） */
   const [touchPick, setTouchPick] = useState<string | null>(null);
   const lastPointerType = useRef<string>('mouse');
@@ -304,7 +316,8 @@ export function CalendarView({
     }
     const ivs = dragIntervals(toMs(d.rec), d.ivIndex, d.mode, proposed, realNow);
     const iv = ivs[d.ivIndex];
-    setDragState({ ...d, ivs, preview: { start: iv.start, end: iv.end ?? realNow } });
+    const clamped = d.mode !== 'start' && proposed.end > realNow + 30_000;
+    setDragState({ ...d, ivs, clamped, preview: { start: iv.start, end: iv.end ?? realNow } });
   };
 
   const commit = async (d: Drag) => {
@@ -381,24 +394,27 @@ export function CalendarView({
       if (dragRef.current) e.preventDefault();
     };
 
-    /** 指针停在哪个翻页区：日视图是滚到头之后的上 / 下边缘，周视图是左右两侧 */
-    const flipZone = (sc: HTMLElement, lp: { x: number; y: number }): -1 | 1 | null => {
+    /**
+     * 指针停在哪个翻页区：左右两侧（日视图翻一天，周视图翻一周）；日视图另有滚到头之后的上 / 下边缘。
+     * 日视图只有一列、色块几乎占满整列，所以左右翻页要先横着拖出一段距离，免得按在色块边上就开始倒计时。
+     */
+    const flipZone = (sc: HTMLElement, lp: { x: number; y: number }): { dir: -1 | 1; axis: 'x' | 'y' } | null => {
       const { isDay, canNext } = latest.current;
-      let dir: -1 | 1 | null = null;
-      if (isDay) {
-        const r = sc.getBoundingClientRect();
-        if (lp.y < r.top + FLIP_ZONE_PX && sc.scrollTop <= 0) dir = -1;
-        else if (lp.y > r.bottom - FLIP_ZONE_PX && sc.scrollTop >= sc.scrollHeight - sc.clientHeight - 1) dir = 1;
-      } else {
-        const cols = gridRef.current?.querySelectorAll<HTMLElement>(':scope > .cal-col');
-        if (cols?.length) {
-          const first = cols[0].getBoundingClientRect();
-          const last = cols[cols.length - 1].getBoundingClientRect();
-          if (lp.x < first.left + 10) dir = -1;
-          else if (lp.x > last.right - 10) dir = 1;
-        }
+      let hit: { dir: -1 | 1; axis: 'x' | 'y' } | null = null;
+      const cols = gridRef.current?.querySelectorAll<HTMLElement>(':scope > .cal-col');
+      const x0 = pendingRef.current?.x0 ?? lp.x;
+      if (cols?.length && (!isDay || Math.abs(lp.x - x0) > SIDE_FLIP_MIN_PX)) {
+        const first = cols[0].getBoundingClientRect();
+        const last = cols[cols.length - 1].getBoundingClientRect();
+        if (lp.x < first.left + 10) hit = { dir: -1, axis: 'x' };
+        else if (lp.x > last.right - 10) hit = { dir: 1, axis: 'x' };
       }
-      return dir === 1 && !canNext ? null : dir;
+      if (!hit && isDay) {
+        const r = sc.getBoundingClientRect();
+        if (lp.y < r.top + FLIP_ZONE_PX && sc.scrollTop <= 0) hit = { dir: -1, axis: 'y' };
+        else if (lp.y > r.bottom - FLIP_ZONE_PX && sc.scrollTop >= sc.scrollHeight - sc.clientHeight - 1) hit = { dir: 1, axis: 'y' };
+      }
+      return hit?.dir === 1 && !canNext ? null : hit;
     };
 
     // 自动滚动 / 翻页的逐帧检查：只在拖动期间运行，拖完自己停下
@@ -430,20 +446,20 @@ export function CalendarView({
           if (sc.scrollTop !== before) update();
         }
 
-        const dir = flipZone(sc, lp);
+        const zone = flipZone(sc, lp);
         const t = performance.now();
-        if (!dir) {
+        if (!zone) {
           if (flipRef.current) {
             flipRef.current = null;
             setFlip(null);
           }
-        } else if (!flipRef.current || flipRef.current.dir !== dir) {
-          flipRef.current = { dir, since: t };
-          setFlip(dir);
+        } else if (!flipRef.current || flipRef.current.dir !== zone.dir || flipRef.current.axis !== zone.axis) {
+          flipRef.current = { ...zone, since: t };
+          setFlip(zone);
         } else if (t - flipRef.current.since >= FLIP_HOLD_MS) {
-          latest.current.onFlip(dir);
-          // 日视图翻到后一天从 0 点接着拖，翻到前一天从 24 点接着拖
-          if (latest.current.isDay) sc.scrollTop = dir === 1 ? 0 : sc.scrollHeight;
+          latest.current.onFlip(zone.dir);
+          // 日视图从上下边缘翻到后一天从 0 点接着拖，翻到前一天从 24 点接着拖；左右翻页保持当前时刻
+          if (latest.current.isDay && zone.axis === 'y') sc.scrollTop = zone.dir === 1 ? 0 : sc.scrollHeight;
           // 继续停着就再翻；重新计时，动画也重新开始
           flipRef.current = null;
           setFlip(null);
@@ -535,7 +551,8 @@ export function CalendarView({
       days.find((d) => recPreview.end > d && recPreview.start < addDays(d, 1)))
     : undefined;
 
-  const flipLabel = flip === null ? '' : isDay ? (flip < 0 ? tr("前一天") : tr("后一天")) : flip < 0 ? tr("前一周") : tr("后一周");
+  const flipLabel = flip === null ? '' : isDay ? (flip.dir < 0 ? tr("前一天") : tr("后一天")) : flip.dir < 0 ? tr("前一周") : tr("后一周");
+  const flipArrow = flip?.axis === 'y' ? (flip.dir < 0 ? '↑' : '↓') : flip?.dir === -1 ? '←' : '→';
 
   return (
     <div
@@ -543,10 +560,14 @@ export function CalendarView({
       style={{ '--hour': `${hourPx}px` } as CSSProperties}
     >
       {flip !== null && (
-        <span className={`cal-flip is-${flip < 0 ? 'prev' : 'next'}`} style={{ '--hold': `${FLIP_HOLD_MS}ms` } as CSSProperties} aria-hidden="true">
-          {flip < 0 ? (isDay ? '↑ ' : '← ') : ''}
+        <span
+          className={`cal-flip is-${flip.dir < 0 ? 'prev' : 'next'} is-${flip.axis}`}
+          style={{ '--hold': `${FLIP_HOLD_MS}ms` } as CSSProperties}
+          aria-hidden="true"
+        >
+          {flip.dir < 0 ? `${flipArrow} ` : ''}
           {flipLabel}
-          {flip > 0 ? (isDay ? ' ↓' : ' →') : ''}
+          {flip.dir > 0 ? ` ${flipArrow}` : ''}
         </span>
       )}
       {!isDay && (
@@ -581,6 +602,10 @@ export function CalendarView({
             const labelHere = !!piece && day === labelDay;
             const dayPlans = plansByDay.get(day) ?? [];
             const planW = dayPlans.length ? (isDay ? PLAN_W.day : PLAN_W.week) : '0%';
+            // 只有和预约时间重叠的东西才让出右侧；一簇并排的色块整簇一起让，宽度才对得齐
+            const hitsPlan = (sp: { start: number; end: number }) => dayPlans.some((p) => overlaps(p, sp));
+            const narrowClusters = new Set(blocks.filter(hitsPlan).map((b) => b.cluster));
+            const sideW = (narrow: boolean) => (narrow ? planW : '0%');
             return (
               <div key={day} className="cal-col" aria-label={dateText(day)} style={{ '--plan-w': planW } as CSSProperties}>
                 {(gapsByDay.get(day) ?? []).map((g) => {
@@ -592,7 +617,7 @@ export function CalendarView({
                       type="button"
                       className={`cal-gap${isPicked(key) || isGapSelected?.(g) ? ' is-selected' : ''}`}
                       aria-expanded={selectedKey === key}
-                      style={{ top: y(g.start), height: Math.max(h, 3) }}
+                      style={{ top: y(g.start), height: Math.max(h, 3), '--plan-w': sideW(hitsPlan(g)) } as CSSProperties}
                       onPointerDown={(e) => onGapDown(e, g)}
                       onClick={guardClick(key, () => onOpenGap(g))}
                       title={tr("未记录 {0}–{1}（{2}）", hm(g.start), hm(g.end), formatHm(g.end - g.start))}
@@ -606,7 +631,11 @@ export function CalendarView({
                   );
                 })}
                 {gapSel && drag?.kind === 'gap' && (
-                  <span className="cal-select" style={{ top: y(gapSel.start), height: y(gapSel.end) - y(gapSel.start) }} aria-hidden="true">
+                  <span
+                    className="cal-select"
+                    style={{ top: y(gapSel.start), height: y(gapSel.end) - y(gapSel.start), '--plan-w': sideW(hitsPlan(gapSel)) } as CSSProperties}
+                    aria-hidden="true"
+                  >
                     {(gapSel.start === drag.preview.start || day === days[0]) && (
                       <span className="cal-drag-label">
                         {spanText(drag.preview.start, drag.preview.end)} · {formatHm(drag.preview.end - drag.preview.start)}
@@ -631,6 +660,7 @@ export function CalendarView({
                       style={
                         {
                           '--c': t?.color ?? '#888',
+                          '--plan-w': sideW(narrowClusters.has(b.cluster)),
                           top: y(b.start),
                           height: Math.max(h, 3),
                           left: `calc((100% - var(--plan-w)) * ${b.lane / b.lanes} + 2px)`,
@@ -659,10 +689,11 @@ export function CalendarView({
                 })}
                 {recDrag && piece && (
                   <span
-                    className="cal-block is-dragging"
+                    className={`cal-block is-dragging${recDrag.clamped ? ' is-clamped' : ''}`}
                     style={
                       {
                         '--c': typeMap.get(recDrag.rec.typeId)?.color ?? '#888',
+                        '--plan-w': sideW(hitsPlan(piece)),
                         top: y(piece.start),
                         height: Math.max(y(piece.end) - y(piece.start), 3),
                         left: `calc((100% - var(--plan-w)) * ${recDrag.lane / recDrag.lanes} + 2px)`,
@@ -681,6 +712,7 @@ export function CalendarView({
                       <span className="cal-drag-label">
                         {spanText(recDrag.preview.start, recDrag.rec.state === 'running' && recDrag.mode === 'start' ? tr("现在") : recDrag.preview.end)} ·{' '}
                         {formatHm(recDrag.preview.end - recDrag.preview.start)}
+                        {recDrag.clamped && ` · ${tr("不能晚于现在")}`}
                       </span>
                     )}
                   </span>
